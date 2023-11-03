@@ -33,7 +33,7 @@ from action.argmapping.action import IntOpt, StrOpt
 from action.argmapping.analytics import (
     CollFormArgs, CTFreqFormArgs, FreqFormArgs)
 from action.argmapping.conc import (
-    QueryFormArgs, ShuffleFormArgs, build_conc_form_args, decode_raw_query)
+    QueryFormArgs, ShuffleFormArgs, build_conc_form_args)
 from action.argmapping.conc.filter import (
     FilterFormArgs, FirstHitsFilterFormArgs, QuickFilterArgsConv,
     SubHitsFilterFormArgs)
@@ -41,8 +41,7 @@ from action.argmapping.conc.other import (
     KwicSwitchArgs, LgroupOpArgs, LockedOpFormsArgs, SampleFormArgs)
 from action.argmapping.conc.sort import SortFormArgs
 from action.control import http_action
-from action.errors import (
-    ImmediateRedirectException, NotFoundException, UserReadableException)
+from action.errors import NotFoundException, UserReadableException, ImmediateRedirectException
 from action.krequest import KRequest
 from action.model.base import BaseActionModel
 from action.model.concordance import ConcActionModel
@@ -195,13 +194,11 @@ async def query_submit(amodel: ConcActionModel, req: KRequest, resp: KResponse):
     try:
         await amodel.set_first_query(
             [q['corpname'] for q in req.json['queries']], qinfo, corpus_info)
-        if qinfo.data.shuffle and 'f' not in amodel.args.q:
+        if amodel.args.shuffle == 1 and 'f' not in amodel.args.q:
+            amodel.args.shuffle = 0
             amodel.args.q.append('f')
             amodel.acknowledge_auto_generated_conc_op(
                 len(amodel.args.q) - 1, ShuffleFormArgs(persist=True))
-        if int(qinfo.data.shuffle) != amodel.args.shuffle:
-            amodel.args.shuffle = int(qinfo.data.shuffle)
-            await amodel.save_options(['shuffle'])
         logging.getLogger(__name__).debug('query: {}'.format(amodel.args.q))
         conc = await get_conc(
             corp=amodel.corp, user_id=amodel.session_get('user', 'id'), q=amodel.args.q,
@@ -284,21 +281,7 @@ async def get_conc_cache_status(amodel: ConcActionModel, req: KRequest, resp: KR
     return await _get_conc_cache_status(amodel)
 
 
-async def view_conc(
-        amodel: ConcActionModel, req: KRequest, resp: KResponse, asnc: int, user_id: int, disable_auclp=False):
-    """
-    Args:
-        amodel:
-        req:
-        resp:
-        asnc:
-        user_id:
-        disable_auclp: specifies whether the "please sign in to see more features" pop-up should
-                       be disabled - no matter what says user auth. status or application config.
-                       I.e. setting this to true turns the pop-up off.
-    Returns:
-
-    """
+async def view_conc(amodel: ConcActionModel, req: KRequest, resp: KResponse, asnc: int, user_id: int):
     corpus_info = await amodel.get_corpus_info(amodel.args.corpname)
     ml_position_filters = {}
     if corpus_info.part_of_ml_corpus:
@@ -343,10 +326,7 @@ async def view_conc(
             kwic_args.alignlist = [(await amodel.cf.get_corpus(c)) for c in amodel.args.align if c]
             kwic_args.structs = amodel.get_struct_opts()
             kwic_args.ml_position_filters = ml_position_filters
-            with plugins.runtime.TOKENS_LINKING as tl:
-                kwic_args.internal_attrs = await tl.get_required_attrs(corpus_info.tokens_linking.providers)
-
-            kwic = Kwic(amodel.corp, conc)
+            kwic = Kwic(amodel.corp, amodel.args.corpname, conc)
 
             out['Sort_idx'] = kwic.get_sort_idx(q=amodel.args.q, pagesize=amodel.args.pagesize)
             out.update(asdict(kwic.kwicpage(kwic_args)))
@@ -431,7 +411,6 @@ async def view_conc(
         out['conc_cache_key'] = os.path.splitext(os.path.basename(conc.get_conc_file()))[0]
     else:
         out['conc_cache_key'] = None
-    out['disable_auclp'] = disable_auclp
     return out
 
 
@@ -446,6 +425,7 @@ async def view(amodel: ConcActionModel, req: KRequest, resp: KResponse):
     return await view_conc(
         amodel, req, resp, asnc, req.session_get('user', 'id'))
 
+
 @bp.route('/create_view')
 @http_action(mutates_result=True, template='view.html', page_model='view', action_log_mapper=log_mapping.view, action_model=ConcActionModel)
 async def create_view(amodel: ConcActionModel, req: KRequest, resp: KResponse):
@@ -453,8 +433,10 @@ async def create_view(amodel: ConcActionModel, req: KRequest, resp: KResponse):
     This is intended for direct conc. access via external pages (i.e. no query_submit + view and just directly
     to the result by providing raw CQL query
     """
-    form_args = await decode_raw_query(amodel.plugin_ctx, [amodel.args.corpname], req.args)
-    await amodel.store_unbound_query_chain(form_args)
+    form_args = await QueryFormArgs.create(amodel.plugin_ctx, [amodel.args.corpname], True)
+    form_args.data.curr_queries = {amodel.args.corpname: amodel.args.q[len(amodel.args.q)-1][1:]} # 1: = we strip 'q' prefix
+    form_args.data.curr_query_types = {amodel.args.corpname: 'advanced'}
+    amodel.set_curr_conc_form_args(form_args)
     asnc = int(req.args.get('asnc')) if 'asnc' in req.args else 0
     return await view_conc(amodel, req, resp, asnc, req.session_get('user', 'id'))
 
@@ -464,8 +446,7 @@ async def create_view(amodel: ConcActionModel, req: KRequest, resp: KResponse):
              action_model=ConcActionModel)
 async def create_lazy_view(amodel: ConcActionModel, req: KRequest, resp: KResponse):
     form_args = await QueryFormArgs.create(amodel.plugin_ctx, [amodel.args.corpname], True)
-    form_args.data.curr_queries = {amodel.args.corpname: amodel.args.q[len(
-        amodel.args.q) - 1][1:]}  # 1: = we strip 'q' prefix
+    form_args.data.curr_queries = {amodel.args.corpname: amodel.args.q[len(amodel.args.q)-1][1:]} # 1: = we strip 'q' prefix
     form_args.data.curr_query_types = {amodel.args.corpname: 'advanced'}
     amodel.set_curr_conc_form_args(form_args)
     return await view_conc(amodel, req, resp, 2, req.session_get('user', 'id'))
@@ -511,11 +492,8 @@ async def restore_conc(amodel: ConcActionModel, req: KRequest, resp: KResponse):
             kwic_args.labelmap = {}
             kwic_args.alignlist = [(await amodel.cf.get_corpus(c)) for c in amodel.args.align if c]
             kwic_args.structs = amodel.get_struct_opts()
-            corpus_info = await amodel.get_corpus_info(amodel.args.corpname)
-            with plugins.runtime.TOKENS_LINKING as tl:
-                kwic_args.internal_attrs = await tl.get_required_attrs(corpus_info.tokens_linking.providers)
 
-            kwic = Kwic(amodel.corp, conc)
+            kwic = Kwic(amodel.corp, amodel.args.corpname, conc)
 
             out['Sort_idx'] = kwic.get_sort_idx(q=amodel.args.q, pagesize=amodel.args.pagesize)
             out.update(asdict(kwic.kwicpage(kwic_args)))
@@ -651,8 +629,6 @@ async def concdesc_json(amodel: ConcActionModel, req: KRequest, resp: KResponse)
                     f'{k}: {v}' for k, v in form.data.curr_queries.items())
         elif isinstance(form, FilterFormArgs):
             cd_item.nicearg = form.data.query
-        elif isinstance(form, FirstHitsFilterFormArgs):
-            cd_item.nicearg = form.data.struct
         cd_item.conc_persistence_op_id = pipeline[i].op_key
     return {'Desc': [x.to_dict() for x in conc_desc]}
 
@@ -768,7 +744,8 @@ async def ajax_switch_corpus(amodel: ConcActionModel, req: KRequest, resp: KResp
             break
 
     struct_and_attrs_tmp = await amodel.get_structs_and_attrs()
-    struct_and_attrs = {k: [sa.to_dict() for sa in v] for k, v in struct_and_attrs_tmp.items()}
+    struct_and_attrs = [(k, [x.to_dict() for x in item])
+                        for k, item in struct_and_attrs_tmp.items()]
 
     subcorp_tt_structure: Optional[TextTypesType] = None
     corp_ident = amodel.corp.portable_ident
@@ -827,6 +804,7 @@ async def ajax_switch_corpus(amodel: ConcActionModel, req: KRequest, resp: KResp
         TextTypesNotes=corpus_info.metadata.desc,
         TextDirectionRTL=True if amodel.corp.get_conf('RIGHTTOLEFT') else False,
         structsAndAttrs=struct_and_attrs,
+        DefaultVirtKeyboard=corpus_info.metadata.default_virt_keyboard,
         SimpleQueryDefaultAttrs=corpus_info.simple_query_default_attrs,
         QSEnabled=amodel.args.qs_enabled,
         SubcorpTTStructure=subcorp_tt_structure,
@@ -901,7 +879,7 @@ async def filter(amodel: ConcActionModel, req: KRequest, resp: KResponse):
     else:
         within_query = ''
         amodel.args.q.append(
-            f'{ff_args.data.pnfilter}{ff_args.data.filfpos}{ff_args.data.filfpos_unit} {ff_args.data.filtpos}:{ff_args.data.filtpos_unit} {rank} {cql_query}')
+            f'{ff_args.data.pnfilter}{ff_args.data.filfpos} {ff_args.data.filtpos} {rank} {cql_query}')
 
     amodel.on_query_store(store_last_op)
     resp.set_http_status(201)
@@ -959,7 +937,7 @@ async def filter_firsthits(amodel: ConcActionModel, req: KRequest, resp: KRespon
     elif len(amodel.args.align) > 0:
         raise UserReadableException('The function is not supported for aligned corpora')
     amodel.set_curr_conc_form_args(FirstHitsFilterFormArgs(
-        persist=True, struct=req.args.get('fh_struct')))
+        persist=True, doc_struct=amodel.corp.get_conf('DOCSTRUCTURE')))
     amodel.args.q.append('F{0}'.format(req.args.get('fh_struct')))
     return await view_conc(amodel, req, resp, 0, req.session_get('user', 'id'))
 
@@ -1132,12 +1110,13 @@ async def ajax_reedit_line_selection(amodel: ConcActionModel, req: KRequest, res
 @bp.route('/ajax_get_first_line_select_page')
 @http_action(return_type='json', action_model=ConcActionModel)
 async def ajax_get_first_line_select_page(amodel: ConcActionModel, req: KRequest, resp: KResponse):
+    corpus_info = await amodel.get_corpus_info(amodel.args.corpname)
     conc = await get_conc(
         corp=amodel.corp, user_id=amodel.session_get('user', 'id'),
         q=amodel.args.q, fromp=amodel.args.fromp, pagesize=amodel.args.pagesize,
         asnc=False, cutoff=amodel.args.cutoff)
     amodel.apply_linegroups(conc)
-    kwic = Kwic(amodel.corp, conc)
+    kwic = Kwic(amodel.corp, amodel.args.corpname, conc)
     return {'first_page': int((kwic.get_groups_first_line() - 1) / amodel.args.pagesize) + 1}
 
 
@@ -1292,7 +1271,7 @@ async def saveconc(amodel: ConcActionModel, req: KRequest[SaveConcArgs], resp: K
             corp=amodel.corp, user_id=req.session_get('user', 'id'), q=amodel.args.q, fromp=amodel.args.fromp,
             pagesize=amodel.args.pagesize, asnc=False, cutoff=amodel.args.cutoff)
         amodel.apply_linegroups(conc)
-        kwic = Kwic(amodel.corp, conc)
+        kwic = Kwic(amodel.corp, amodel.args.corpname, conc)
         conc.switch_aligned(os.path.basename(amodel.args.corpname))
         from_line = int(req.mapped_args.from_line)
         to_line = conc.size() if req.mapped_args.to_line < 0 else min(req.mapped_args.to_line, conc.size())
@@ -1307,8 +1286,6 @@ async def saveconc(amodel: ConcActionModel, req: KRequest[SaveConcArgs], resp: K
         kwic_args.leftctx = amodel.args.leftctx
         kwic_args.rightctx = amodel.args.rightctx
         kwic_args.structs = amodel.get_struct_opts()
-        with plugins.runtime.TOKENS_LINKING as tl:
-            kwic_args.internal_attrs = await tl.get_required_attrs(corpus_info.tokens_linking.providers)
 
         data = kwic.kwicpage(kwic_args)
 

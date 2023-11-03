@@ -18,18 +18,17 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import asyncio
 import logging
 import os
 from typing import List, Optional, Tuple, Union
+import asyncio
 
 import aiofiles.os
 import bgcalc
 import plugins
 import settings
 from conclib.calc import (
-    check_result, del_silent, extract_manatee_error, find_cached_conc_base,
-    wait_for_conc)
+    del_silent, extract_manatee_error, find_cached_conc_base, wait_for_conc, check_result)
 from conclib.calc.base import GeneralWorker
 from conclib.common import KConc
 from conclib.empty import InitialConc
@@ -56,7 +55,7 @@ async def _get_async_conc(corp, user_id, q, corp_cache_key, cutoff, minsize) -> 
             'conc_register', object.__class__,
             (user_id, corp.portable_ident, corp_cache_key, q, cutoff, TASK_TIME_LIMIT),
             time_limit=CONC_REGISTER_TASK_LIMIT)
-        await ans.get(timeout=CONC_REGISTER_WAIT_LIMIT)
+        ans.get(timeout=CONC_REGISTER_WAIT_LIMIT)
     conc_avail = await wait_for_conc(
         cache_map=cache_map, corp_cache_key=corp_cache_key, q=q, cutoff=cutoff, minsize=minsize)
     if conc_avail:
@@ -65,15 +64,14 @@ async def _get_async_conc(corp, user_id, q, corp_cache_key, cutoff, minsize) -> 
         return InitialConc(corp, await cache_map.readable_cache_path(corp_cache_key, q, cutoff))
 
 
-async def get_bg_conc(
+async def _get_bg_conc(
         corp: AbstractKCorpus,
         user_id: int,
         q: Tuple[str, ...],
         corp_cache_key: Optional[str],
         cutoff: int,
         calc_from: int,
-        minsize: int,
-        force_wait: bool = False,
+        minsize: int
 ) -> KConc:
     """
     arguments:
@@ -94,12 +92,10 @@ async def get_bg_conc(
                 logging.getLogger(__name__).warning(
                     f'Removed unbound conc. cache file {status.cachefile}')
         worker = bgcalc.calc_backend_client(settings)
-        result = await worker.send_task(
+        await worker.send_task(
             'conc_sync_calculate', object.__class__,
             (user_id, corp.corpname, corp.subcorpus_id, corp_cache_key, q, cutoff),
             time_limit=TASK_TIME_LIMIT)
-        if force_wait:
-            await result.get(timeout=TASK_TIME_LIMIT)
     # for smaller concordances/corpora there is a chance the data
     # is ready in a few seconds - let's try this:
 
@@ -221,7 +217,7 @@ async def get_conc(
 
     # move mid-sized aligned corpora or large non-aligned corpora to background
     if _should_be_bg_query(corp, q, asnc):
-        conc = await get_bg_conc(
+        conc = await _get_bg_conc(
             corp=corp, user_id=user_id, q=q, corp_cache_key=corp.cache_key, cutoff=cutoff,
             calc_from=calc_from, minsize=minsize)
     else:

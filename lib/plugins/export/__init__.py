@@ -26,19 +26,15 @@ from typing import Any, Dict, List, Tuple, Union
 
 from action.argmapping.wordlist import WordlistSaveFormArgs
 from action.model.concordance import ConcActionModel
-from action.model.keywords import KeywordsActionModel
 from action.model.pquery import ParadigmaticQueryActionModel
 from action.model.wordlist import WordlistActionModel
 from babel import Locale
 from bgcalc.coll_calc import CalculateCollsResult
-from bgcalc.keywords import KeywordsResult
 from bgcalc.pquery.storage import PqueryDataLine
-from kwiclib import AttrRole
 from kwiclib.common import KwicPageData
 from views.colls import SavecollArgs
 from views.concordance import SaveConcArgs
 from views.freqs import SavefreqArgs
-from views.keywords import SaveKeywordsArgs
 from views.pquery import SavePQueryArgs
 
 
@@ -64,8 +60,8 @@ class AbstractConcExportMixin(object):
             else:
                 ans.append([str(item['str']).strip()])
             if add_tail:
-                for posattr in item.get('posattrs', []):
-                    ans[-1].append(posattr)  # TODO take into account attr role
+                for tp in item.get('tail_posattrs', []):
+                    ans[-1].append(tp)
         return ' '.join('/'.join(x) for x in ans).strip()
 
     def _process_lang(
@@ -133,15 +129,6 @@ class AbstractPqueryExportMixin(object):
         """
 
 
-class AbstractKeywordsExportMixin(object):
-
-    @abc.abstractmethod
-    async def write_keywords(self, amodel: KeywordsActionModel, result: KeywordsResult, args: SaveKeywordsArgs):
-        """
-        write keywords data
-        """
-
-
 class AbstractWordlistExportMixin(object):
 
     @abc.abstractmethod
@@ -151,7 +138,7 @@ class AbstractWordlistExportMixin(object):
         """
 
 
-class AbstractExport(AbstractConcExportMixin, AbstractCollExportMixin, AbstractFreqExportMixin, AbstractPqueryExportMixin, AbstractKeywordsExportMixin, AbstractWordlistExportMixin):
+class AbstractExport(AbstractConcExportMixin, AbstractCollExportMixin, AbstractFreqExportMixin, AbstractPqueryExportMixin, AbstractWordlistExportMixin):
 
     def __init__(self, locale: Locale) -> None:
         self._locale = locale

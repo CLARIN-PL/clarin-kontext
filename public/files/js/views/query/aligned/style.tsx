@@ -36,14 +36,6 @@ export const AlignedCorpora = styled.section`
     }
 `;
 
-// ---------------- <AlignedCorporaLite /> -----------------------------
-
-export const AlignedCorporaLite = styled.section`
-    .parallel-queries {
-        margin-left: 1.3em;
-    }
-`;
-
 // ---------------- <HeadingListOfAlignedCorpora /> ---------------------
 
 export const HeadingListOfAlignedCorpora = styled.span`

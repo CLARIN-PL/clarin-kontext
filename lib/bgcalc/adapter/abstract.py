@@ -21,7 +21,7 @@ T = TypeVar('T')
 class AbstractResultWrapper(abc.ABC, Generic[T]):
 
     @abc.abstractmethod
-    async def get(self, timeout=None) -> Union[T, Exception]:
+    def get(self, timeout=None) -> Union[T, Exception]:
         pass
 
     @property

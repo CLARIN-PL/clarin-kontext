@@ -12,9 +12,12 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import datetime
 import logging
 from typing import Optional, Tuple, Union
 
+import settings
+import ujson as json
 from action.errors import ImmediateRedirectException, UserReadableException
 from plugin_types.action_log import AbstractActionLog
 
@@ -60,6 +63,8 @@ class DefaultActionLog(AbstractActionLog):
         if self.is_error(err_desc):
             err_name, err_msg, err_anchor = self.expand_error_desc(err_desc)
             log_data['error'] = dict(name=err_name, message=err_msg, anchor=err_anchor)
+        log_data['date'] = datetime.datetime.today().strftime(
+            '%s.%%f' % settings.DEFAULT_DATETIME_FORMAT)
         log_data['action'] = full_action_name
         log_data['user_id'] = request.ctx.session.get('user', {}).get('id')
         if request.current_proc_time:
@@ -71,8 +76,8 @@ class DefaultActionLog(AbstractActionLog):
         }
         return log_data
 
-    def write_action(self, data):
-        logging.getLogger('QUERY').info(data)
+    def write_action(self, data: str) -> None:
+        logging.getLogger('QUERY').info(json.dumps(data))
 
 
 def create_instance(_):

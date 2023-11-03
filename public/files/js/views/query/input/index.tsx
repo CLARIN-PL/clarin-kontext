@@ -269,12 +269,10 @@ export function init({
                 <label htmlFor={'query-switch-'+props.sourceId}>
                     <a onClick={handleLabelClick}>{he.translate('query__qt_advanced')}</a>
                 </label>
-                <S.ToggleSwitchScaler>
-                    <layoutViews.ToggleSwitch
-                        id={'query-switch-'+props.sourceId}
-                        onChange={handleSelection}
-                        checked={props.queryType === 'advanced'} />
-                </S.ToggleSwitchScaler>
+                <layoutViews.ToggleSwitch
+                    id={'query-switch-'+props.sourceId}
+                    onChange={handleSelection}
+                    checked={props.queryType === 'advanced'} />
             </S.TRQueryTypeField>
         );
     };
@@ -845,13 +843,10 @@ export function init({
         }
 
         return (
-            <S.UseRegexpSelector>
+            <span>
                 <label htmlFor={'regexp-switch-'+props.sourceId}>{he.translate('query__simple_q_use_regexp')}</label>
-                <layoutViews.ToggleSwitch
-                    id={'regexp-switch-'+props.sourceId}
-                    checked={props.value}
-                    onChange={handleClick}/>
-            </S.UseRegexpSelector>
+                <layoutViews.ToggleSwitch id={'regexp-switch-'+props.sourceId} checked={props.value} onChange={handleClick}/>
+            </span>
         );
     };
 

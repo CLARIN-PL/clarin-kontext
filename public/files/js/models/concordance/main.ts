@@ -18,10 +18,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import { ExtractPayload, IFullActionControl, StatefulModel } from 'kombo';
+import { IFullActionControl, StatefulModel } from 'kombo';
 import { throwError, Observable, interval, Subscription, forkJoin } from 'rxjs';
 import { tap, map, concatMap } from 'rxjs/operators';
-import { List, pipe, HTTP, tuple, Dict, Rx } from 'cnc-tskit';
+import { List, pipe, HTTP, tuple, Dict } from 'cnc-tskit';
 
 import * as ViewOptions from '../../types/viewOptions';
 import { PageModel } from '../../app/page';
@@ -38,22 +38,13 @@ import { Actions as MainMenuActions } from '../mainMenu/actions';
 import { Block } from '../freqs/common';
 import { highlightConcLineTokens, importLines } from './transform';
 
-/**
- * HighlightAttrMatch specifies a single global (per page)
- * tokens highlight operation based on a provided value and
- * attribute name.
- *
- * Please do not confuse this with tokens_linking hihglighting
- * which is based on token clicking and always targeted to
- * specifiec token IDs.
- */
-export interface HighlightAttrMatch {
+export interface HighlightItem {
 
     /**
      * level specifies target lang./corp. column for highlighting:
      *  -  0: first corpus,
      *  -  1: second corpus,
-     *  -  N: (N+1)th corpus
+     *  -  N: (N-1)th corpus
      *  - -1: all corpora
      */
     level:number;
@@ -79,10 +70,10 @@ export interface HighlightAttrMatch {
  * @returns
  */
 export function mergeHighlightItems(
-    current:Array<HighlightAttrMatch>,
-    incoming:Array<HighlightAttrMatch>,
+    current:Array<HighlightItem>,
+    incoming:Array<HighlightItem>,
     incomingLoaded:boolean
-):Array<HighlightAttrMatch> {
+):Array<HighlightItem> {
 
     return pipe(
         [...current, ...incoming],
@@ -110,12 +101,12 @@ export interface ConcordanceModelState {
 
     highlightWordsStore:{[posAttr:string]:HighlightWords};
 
-    highlightedMatches:Array<HighlightAttrMatch>;
+    highlightItems:Array<HighlightItem>;
 
     /**
      * a concordance ID the highlight was loaded for (=> if conc is changed, we have to reload highlights too)
      */
-    highlightedMatchConcId:string|undefined;
+    highlightConcId:string|undefined;
 
     viewMode:ConcViewMode;
 
@@ -135,7 +126,7 @@ export interface ConcordanceModelState {
 
     subcName:string;
 
-    playerAttachedChunk:number|null;
+    playerAttachedChunk:string;
 
     pagination:ServerPagination;
 
@@ -169,8 +160,6 @@ export interface ConcordanceModelState {
 
     supportsTokenConnect:boolean;
 
-    supportsTokensLinking:boolean;
-
     emptyRefValPlaceholder:string;
 
     saveFormVisible:boolean;
@@ -188,18 +177,6 @@ export interface ConcordanceModelState {
     forceScroll:number|null;
 
     audioPlayerStatus:PlayerStatus;
-
-    mergedAttrs:Array<[string, number]>;
-
-    mergedCtxAttrs:Array<[string, number]>;
-
-    tokenLinks:Array<{
-        [tokenId:string]:{
-            color:string;
-            lineId:number;
-            comment?:string
-        }
-    }>;
 }
 
 
@@ -247,10 +224,10 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 concSize: lineViewProps.concSummary.concSize,
                 concId: layoutModel.getConf<string>('concPersistenceOpId'),
                 baseViewAttr: lineViewProps.baseViewAttr,
-                lines: importLines(initialData, viewAttrs.indexOf(lineViewProps.baseViewAttr) - 1, lineViewProps.mergedAttrs, lineViewProps.mergedCtxAttrs),
+                lines: importLines(initialData, viewAttrs.indexOf(lineViewProps.baseViewAttr) - 1),
                 highlightWordsStore: {},
-                highlightedMatches: [],
-                highlightedMatchConcId: null,
+                highlightItems: [],
+                highlightConcId: null,
                 viewAttrs,
                 numItemsInLockedGroups: lineViewProps.NumItemsInLockedGroups,
                 pagination: lineViewProps.pagination, // TODO possible mutable mess
@@ -258,10 +235,9 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 useSafeFont: lineViewProps.useSafeFont,
                 busyWaitSecs: 0,
                 supportsSyntaxView: lineViewProps.supportsSyntaxView,
-                playerAttachedChunk: null,
+                playerAttachedChunk: '',
                 showAnonymousUserWarn: lineViewProps.anonymousUser,
                 supportsTokenConnect: lineViewProps.supportsTokenConnect,
-                supportsTokensLinking: lineViewProps.supportsTokensLinking,
                 emptyRefValPlaceholder: '\u2014',
                 lineGroupIds: attachColorsToIds(
                     layoutModel.getConf<Array<number>>('LinesGroupsNumbers'),
@@ -274,10 +250,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 lineSelOptionsVisible: false,
                 syntaxViewVisible: false,
                 forceScroll: null,
-                audioPlayerStatus: null,
-                mergedAttrs: lineViewProps.mergedAttrs,
-                mergedCtxAttrs: lineViewProps.mergedAttrs,
-                tokenLinks: List.map(_ => ({}), lineViewProps.CorporaColumns),
+                audioPlayerStatus: null
             }
         );
         this.layoutModel = layoutModel;
@@ -341,7 +314,6 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                     });
 
                 } else {
-                    document.title = action.payload.data.page_title;
                     this.layoutModel.updateConcPersistenceId(action.payload.data.conc_persistence_op_id);
                     this.changeState(state => {
                         this.importData(state, action.payload.data);
@@ -350,7 +322,6 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                         }
                         state.unfinishedCalculation = false;
                         state.playerAttachedChunk = null;
-                        this.reapplyTokenLinkHighlights(state);
                     });
                     this.pushHistoryState({
                         name: Actions.ReloadConc.name,
@@ -460,7 +431,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                                 (_, kcAttr) => {
                                     this.reloadAlignedHighlights(
                                         kcAttr,
-                                        this.state.highlightedMatchConcId !== action.payload.concId
+                                        this.state.highlightConcId !== action.payload.concId
                                     );
                                 },
                                 this.state.highlightWordsStore
@@ -602,20 +573,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
         this.addActionHandler(
             Actions.SwitchKwicSentMode,
             action => {
-                this.waitForAction({}, (action, syncData) => {
-                    return Actions.isPublishStoredLineSelections(action) ?
-                        null : syncData;
-                }).pipe(
-                    map(v => (v as typeof Actions.PublishStoredLineSelections).payload),
-                    concatMap(
-                        v => Rx.zippedWith(v, this.changeViewMode(v))
-                    ),
-                    tap(
-                        ([_, selections]) => {
-                            this.applyLineSelections(selections);
-                        }
-                    )
-                ).subscribe({
+                this.changeViewMode().subscribe({
                     next: () => {
                         this.emitChange();
                     },
@@ -623,16 +581,14 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                         console.error(err);
                         this.layoutModel.showMessage('error', err);
                         this.emitChange();
-                    },
-                    complete: () => {
-                        Dict.forEach(
-                            (_, kcAttr) => {
-                                this.reloadAlignedHighlights(kcAttr, true);
-                            },
-                            this.state.highlightWordsStore
-                        );
                     }
                 });
+                Dict.forEach(
+                    (_, kcAttr) => {
+                        this.reloadAlignedHighlights(kcAttr, true);
+                    },
+                    this.state.highlightWordsStore
+                );
             }
         );
 
@@ -725,7 +681,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
             Actions.LineSelectionReset,
             action => {
                 this.changeState(state => {
-                    state.forceScroll = window.scrollY;
+                    state.forceScroll = window.pageYOffset;
                     state.lines = List.map(
                         v => ({...v, lineGroup: undefined}),
                         state.lines
@@ -740,7 +696,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
             action => {
                 if (!action.error) {
                     this.changeState(state => {
-                        state.forceScroll = window.scrollY;
+                        state.forceScroll = window.pageYOffset;
                         state.numItemsInLockedGroups = 0;
                         state.lineGroupIds = [];
                         state.lineSelOptionsVisible = false;
@@ -756,7 +712,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
             ],
             action => {
                 this.changeState(state => {
-                    state.forceScroll = window.scrollY;
+                    state.forceScroll = window.pageYOffset;
                     state.saveFormVisible = action.name === MainMenuActions.ShowSaveForm.name
                 });
             }
@@ -768,7 +724,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 this.changeState(state => {
                     state.kwicDetailVisible = true;
                     state.refDetailVisible = false;
-                    state.forceScroll = window.scrollY;
+                    state.forceScroll = window.pageYOffset;
                     this.setLineFocus(state, action.payload.lineIdx, true);
                 });
             }
@@ -780,7 +736,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 this.changeState(state => {
                     state.kwicDetailVisible = true;
                     state.refDetailVisible = false;
-                    state.forceScroll = window.scrollY;
+                    state.forceScroll = window.pageYOffset;
                     this.setLineFocus(state, action.payload.lineIdx, true);
                 });
             }
@@ -791,7 +747,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
             action => {
                 this.changeState(state => {
                     state.kwicDetailVisible = false;
-                    state.forceScroll = window.scrollY;
+                    state.forceScroll = window.pageYOffset;
                     this.resetLineFocus(state);
                 });
             }
@@ -803,7 +759,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 this.changeState(state => {
                     state.refDetailVisible = true;
                     state.kwicDetailVisible = false;
-                    state.forceScroll = window.scrollY;
+                    state.forceScroll = window.pageYOffset;
                     this.setLineFocus(state, action.payload.lineIdx, true);
                 });
             }
@@ -814,7 +770,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
             action => {
                 this.changeState(state => {
                     state.refDetailVisible = false;
-                    state.forceScroll = window.scrollY;
+                    state.forceScroll = window.pageYOffset;
                     this.resetLineFocus(state);
                 });
             }
@@ -824,7 +780,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
             Actions.SelectLine,
             action => {
                 this.changeState(state => {
-                    state.forceScroll = window.scrollY;
+                    state.forceScroll = window.pageYOffset;
                     state.lines = List.map(
                         line => ({
                             ...line,
@@ -848,7 +804,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
             Actions.ToggleLineSelOptions,
             action => {
                 this.changeState(state => {
-                    state.forceScroll = window.scrollY;
+                    state.forceScroll = window.pageYOffset;
                     state.lineSelOptionsVisible = !state.lineSelOptionsVisible;
                 });
             }
@@ -872,7 +828,6 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 }
             }
         );
-
 
         this.addActionHandler(
             Actions.RenameSelectionGroupDone,
@@ -914,12 +869,12 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
         );
 
         this.addActionHandler(
-            Actions.HighlightAttrMatch,
+            Actions.SetHighlightItems,
             action => {
                 this.changeState(state => {
-                    state.forceScroll = window.scrollY;
-                    state.highlightedMatches = mergeHighlightItems(
-                        state.highlightedMatches,
+                    state.forceScroll = window.pageYOffset;
+                    state.highlightItems = mergeHighlightItems(
+                        state.highlightItems,
                         action.payload.items,
                         false
                     );
@@ -930,122 +885,6 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 this.reloadAlignedHighlights(action.payload.matchPosAttr, false);
             }
         );
-
-        this.addActionHandler(
-            Actions.HighlightTokens,
-            action => {
-                this.changeState(state => {
-                    state.forceScroll = action.payload.scrollY;
-                    List.forEach(
-                        h => {
-                            const corpusIdx = List.findIndex(
-                                v => v.n === h.corpusId,
-                                this.state.corporaColumns
-                            );
-                            if (corpusIdx > -1) {
-                                state.tokenLinks[corpusIdx][`${h.tokenId}`] = {
-                                    color: h.color,
-                                    lineId: h.lineId,
-                                    comment: h.comment,
-                                };
-                                this.highlightTokenLink(
-                                    state,
-                                    corpusIdx,
-                                    h.tokenId,
-                                    h.color,
-                                    h.isBusy
-                                );
-                            }
-                        },
-                        action.payload.highlights
-                    );
-                });
-            },
-        );
-
-        this.addActionHandler(
-            Actions.DehighlightTokens,
-            action => {
-                this.changeState(state => {
-                    List.forEach(
-                        h => {
-                            const corpusIdx = List.findIndex(
-                                v => v.n === h.corpusId,
-                                this.state.corporaColumns
-                            );
-                            if (corpusIdx > -1) {
-                                this.highlightTokenLink(
-                                    state,
-                                    corpusIdx,
-                                    h.tokenId,
-                                    null,
-                                    false
-                                );
-                                delete state.tokenLinks[corpusIdx][`${h.tokenId}`];
-                            }
-                        },
-                        action.payload.dehighlights
-                    );
-                });
-            },
-        );
-    }
-
-    private highlightTokenLink(
-        state:ConcordanceModelState,
-        corpusIdx:number,
-        tokenId:number,
-        color:string,
-        isBusy:boolean,
-    ) {
-        pipe(
-            state.lines,
-            // find lines containing tokens with tokenId
-            List.forEach(
-                line => {
-                    const lftSrch = List.find(
-                        x => x.token.id === tokenId,
-                        line.languages[corpusIdx].left
-                    );
-                    if (lftSrch) {
-                        lftSrch.token.hColor = color;
-                        lftSrch.token.hIsBusy = isBusy;
-                    }
-                    const kwicSrch = List.find(
-                        x => x.token.id === tokenId,
-                        line.languages[corpusIdx].kwic
-                    );
-                    if (kwicSrch) {
-                        kwicSrch.token.hColor = color;
-                        kwicSrch.token.hIsBusy = isBusy;
-                    }
-                    const rgtSrch = List.find(
-                        x => x.token.id === tokenId,
-                        line.languages[corpusIdx].right
-                    );
-                    if (rgtSrch) {
-                        rgtSrch.token.hColor = color;
-                        rgtSrch.token.hIsBusy = isBusy;
-                    }
-                }
-            )
-        );
-    }
-
-    private reapplyTokenLinkHighlights(state:ConcordanceModelState) {
-        List.forEach(
-            (v, i) => {
-                Dict.forEach(
-                    (v2, k) => {
-                        this.highlightTokenLink(
-                            state, i, parseInt(k), v2.color, false);
-                    },
-                    v
-                );
-            },
-            this.state.tokenLinks
-        );
-
     }
 
     private stopBusyTimer(subs:Subscription):null {
@@ -1057,17 +896,15 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
 
     private applyLineSelections(data:PublishLineSelectionPayload):void {
         this.changeState(state => {
-            state.forceScroll = window.scrollY;
+            state.forceScroll = window.pageYOffset;
             state.lines = List.map(
                 line => {
                     const srch = List.find(
                         ([tokenNum,,]) => line.languages[0].tokenNumber === tokenNum,
                         data.selections
                     );
-                    return {
-                        ...line,
-                        lineGroup: srch ? srch[2] : line.lineGroup
-                    };
+                    const lineGroup = srch ? srch[2] : line.lineGroup;
+                    return {...line, lineGroup};
                 },
                 state.lines
             );
@@ -1093,7 +930,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
 
     private applyTokenHighlighting(
             languages:Array<KWICSection>,
-            highlightItems:Array<HighlightAttrMatch>,
+            highlightItems:Array<HighlightItem>,
             words:HighlightWords,
             kcAttr:string
     ):Array<KWICSection> {
@@ -1173,7 +1010,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
         const pageNum:number = action === 'customPage' ?
             pageNumber : this.state.pagination[action];
         if (!this.pageNumIsValid(pageNum) || !this.pageIsInRange(pageNum)) {
-            return throwError(() => new Error(this.layoutModel.translate(
+            return throwError(new Error(this.layoutModel.translate(
                 'concview__invalid_page_num_err')));
         }
 
@@ -1202,7 +1039,6 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                             v => v,
                             mapIdToIdWithColors
                         );
-                        this.reapplyTokenLinkHighlights(state);
                     });
                 }
             ),
@@ -1217,9 +1053,9 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
      * @returns
      */
     private reloadAlignedHighlights(kcAttr:string, forceReload:boolean) {
-        if (List.size(this.state.corporaColumns) === 1 || List.size(this.state.highlightedMatches) === 0) {
+        if (List.size(this.state.corporaColumns) === 1 || List.size(this.state.highlightItems) === 0) {
             this.dispatchSideEffect(
-                Actions.HighlightAttrMatchDone,
+                Actions.SetHighlightItemsDone,
                 {
                     matchPosAttr: kcAttr,
                     items: []
@@ -1228,7 +1064,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
             return;
         }
         const toLoad = pipe(
-            this.state.highlightedMatches,
+            this.state.highlightItems,
             List.filter(x => !x.loaded),
             List.map(x => ({...x, loaded: true}))  // we already prepere here for later merge
         );
@@ -1241,7 +1077,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                             ...line,
                             languages: this.applyTokenHighlighting(
                                 line.languages,
-                                List.filter(x => x.attr === kcAttr, state.highlightedMatches),
+                                List.filter(x => x.attr === kcAttr, state.highlightItems),
                                 state.highlightWordsStore[kcAttr],
                                 kcAttr
                             )
@@ -1251,10 +1087,10 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 }
             );
             this.dispatchSideEffect(
-                Actions.HighlightAttrMatchDone,
+                Actions.SetHighlightItemsDone,
                 {
                     matchPosAttr: kcAttr,
-                    items: this.state.highlightedMatches
+                    items: this.state.highlightItems
                 }
             );
             return;
@@ -1328,38 +1164,38 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                             data,
                             state.highlightWordsStore[kcAttr]
                         );
-                        state.highlightedMatchConcId = state.concId;
+                        state.highlightConcId = state.concId;
                         state.lines = List.map(
                             line => ({
                                 ...line,
                                 languages: this.applyTokenHighlighting(
                                     line.languages,
-                                    List.filter(x => x.attr === kcAttr, state.highlightedMatches),
+                                    List.filter(x => x.attr === kcAttr, state.highlightItems),
                                     state.highlightWordsStore[kcAttr],
                                     kcAttr
                                 )
                             }),
                             state.lines
                         );
-                        state.highlightedMatches = mergeHighlightItems(
-                            state.highlightedMatches,
+                        state.highlightItems = mergeHighlightItems(
+                            state.highlightItems,
                             toLoad,
                             true
                         );
                     }
                 );
                 this.dispatchSideEffect(
-                    Actions.HighlightAttrMatchDone,
+                    Actions.SetHighlightItemsDone,
                     {
                         matchPosAttr: kcAttr,
-                        items: this.state.highlightedMatches
+                        items: this.state.highlightItems
                     }
                 );
             },
             error: error => {
                 this.layoutModel.showMessage('error', error);
                 this.dispatchSideEffect(
-                    Actions.HighlightAttrMatchDone,
+                    Actions.SetHighlightItemsDone,
                     error
                 );
             }
@@ -1369,9 +1205,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
     private importData(state:ConcordanceModelState, data:AjaxConcResponse):void {
         state.lines = importLines(
             data.Lines,
-            this.getViewAttrs().indexOf(state.baseViewAttr) - 1,
-            data.merged_attrs,
-            data.merged_ctxattrs,
+            this.getViewAttrs().indexOf(state.baseViewAttr) - 1
         );
         state.kwicCorps = data.KWICCorps;
         state.numItemsInLockedGroups = data.num_lines_in_groups;
@@ -1379,8 +1213,6 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
         state.unfinishedCalculation = !!data.running_calc;
         state.lineGroupIds = [];
         state.concId = data.conc_persistence_op_id;
-        state.mergedAttrs = data.merged_attrs;
-        state.mergedCtxAttrs = data.merged_ctxattrs;
     }
 
     private changeGroupNaming(state:ConcordanceModelState, data:ConcGroupChangePayload):void {
@@ -1401,9 +1233,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
             {'sen': 'kwic', 'kwic': 'sen'}[this.state.viewMode];
     }
 
-    private changeViewMode(
-        lineSelPayload:ExtractPayload<typeof Actions.PublishStoredLineSelections>
-    ):Observable<ConcViewMode> {
+    private changeViewMode():Observable<ConcViewMode> {
         const viewMode = this.getFlippedViewModeValue()
         this.changeState(state => {state.viewMode = viewMode});
         this.layoutModel.updateConcArgs({viewmode: this.state.viewMode});
@@ -1421,12 +1251,6 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 resp => {
                     this.changeState(state => {
                         this.importData(state, resp);
-                        this.reapplyTokenLinkHighlights(state);
-                        state.lineGroupIds = attachColorsToIds(
-                            resp.lines_groups_numbers,
-                            v => v,
-                            mapIdToIdWithColors
-                        );
                     });
                     this.pushHistoryState({
                         name: Actions.ReloadConc.name,
@@ -1493,11 +1317,11 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
         return -1;
     }
 
-    private findChunks(state:ConcordanceModelState, ...tokenIds:Array<number>):Array<TextChunk> {
+    private findChunks(state:ConcordanceModelState, ...chunkIds:Array<string>):Array<TextChunk> {
         for (let i = 0; i < state.lines.length; i += 1) {
             for (let j = 0; j < state.lines[i].languages.length; j += 1) {
                 const ans = pipe(
-                    tokenIds,
+                    chunkIds,
                     List.map(c => ConclineSectionOps.findChunk(state.lines[i].languages[j], c)),
                     List.filter(v => v !== undefined)
                 );
@@ -1509,16 +1333,16 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
         return [];
     }
 
-    private playAudio(tokenIds:Array<number>):void {
+    private playAudio(chunksIds:Array<string>):void {
         this.setStopStatus(); // stop anything playing right now
-        const activeChunkId = List.last(tokenIds);
+        const activeChunkId = List.last(chunksIds);
         this.changeState(state => {
             state.playerAttachedChunk = activeChunkId;
             // let's get an active line - there can be only one even if we play multiple chunks
             const activeLine = this.findActiveLineIdx(state);
             const fakeChangedLine = state.lines[activeLine];
             state.lines[activeLine] = fakeChangedLine
-            const playChunks = this.findChunks(state, ...tokenIds);
+            const playChunks = this.findChunks(state, ...chunksIds);
             if (!List.empty(playChunks)) {
                 List.last(playChunks).showAudioPlayer = true
 
@@ -1526,7 +1350,7 @@ export class ConcordanceModel extends StatefulModel<ConcordanceModelState> {
                 throw new Error('No chunks to play');
             }
         });
-        const playChunks = this.findChunks(this.state, ...tokenIds);
+        const playChunks = this.findChunks(this.state, ...chunksIds);
         if (!List.empty(playChunks)) {
             this.audioPlayer.start(
                 pipe(

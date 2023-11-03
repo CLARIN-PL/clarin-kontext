@@ -30,6 +30,7 @@ import urllib.request
 from collections import defaultdict
 from typing import List
 
+import aiomysql
 import mailing
 import plugins
 from action.plugin.ctx import PluginCtx

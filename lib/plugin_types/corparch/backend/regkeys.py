@@ -24,6 +24,7 @@ REG_COLS_MAP: Dict[str, str] = OrderedDict(
     PATH='path',
     VERTICAL='vertical',
     LANGUAGE='language',
+    LOCALE='locale',
     ENCODING='rencoding',
     INFO='info',
     DOCSTRUCTURE='docstructure',

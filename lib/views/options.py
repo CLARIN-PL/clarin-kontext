@@ -31,7 +31,7 @@ bp = Blueprint('options', url_prefix='options')
 
 def _set_new_viewopts(
         amodel: UserActionModel, pagesize=0, newctxsize=0, ctxunit='', line_numbers=False, shuffle=False, wlpagesize=0,
-        fmaxitems=0, fdefault_view='charts', citemsperpage=0, pqueryitemsperpage=0, rich_query_editor=False, subcpagesize=0, kwpagesize=0):
+        fmaxitems=0, fdefault_view='charts', citemsperpage=0, pqueryitemsperpage=0, rich_query_editor=False, subcpagesize=0):
     amodel.args.pagesize = pagesize
     if ctxunit == '@pos':
         ctxunit = ''
@@ -48,7 +48,6 @@ def _set_new_viewopts(
     amodel.args.pqueryitemsperpage = pqueryitemsperpage
     amodel.args.rich_query_editor = rich_query_editor
     amodel.args.subcpagesize = subcpagesize
-    amodel.args.kwpagesize = kwpagesize
 
 
 def _set_new_corp_options(amodel: CorpusActionModel, attrs=(), attr_vmode='', structs=(), refs=(),
@@ -171,6 +170,7 @@ async def viewopts(amodel: UserActionModel, req: KRequest, resp: KResponse):
         newctxsize=amodel.args.kwicleftctx[1:],
         ctxunit='@pos',
         line_numbers=amodel.args.line_numbers,
+        shuffle=bool(amodel.args.shuffle),
         wlpagesize=amodel.args.wlpagesize,
         fmaxitems=amodel.args.fmaxitems,
         fdefault_view=amodel.args.fdefault_view,
@@ -178,7 +178,6 @@ async def viewopts(amodel: UserActionModel, req: KRequest, resp: KResponse):
         pqueryitemsperpage=amodel.args.pqueryitemsperpage,
         rich_query_editor=amodel.args.rich_query_editor,
         subcpagesize=amodel.args.subcpagesize,
-        kwpagesize=amodel.args.kwpagesize,
     )
 
 
@@ -191,6 +190,7 @@ async def viewoptsx(amodel: UserActionModel, req: KRequest, resp: KResponse):
         newctxsize=req.json.get('newctxsize'),
         ctxunit=req.json.get('ctxunit'),
         line_numbers=req.json.get('line_numbers'),
+        shuffle=req.json.get('shuffle'),
         wlpagesize=req.json.get('wlpagesize'),
         fmaxitems=req.json.get('fmaxitems'),
         fdefault_view=req.json.get('fdefault_view'),
@@ -198,7 +198,6 @@ async def viewoptsx(amodel: UserActionModel, req: KRequest, resp: KResponse):
         pqueryitemsperpage=req.json.get('pqueryitemsperpage'),
         rich_query_editor=req.json.get('rich_query_editor'),
         subcpagesize=req.json.get('subcpagesize'),
-        kwpagesize=req.json.get('kwpagesize'),
     )
     await amodel.save_options(
         optlist=[field.name for field in fields(GeneralOptionsArgs)])

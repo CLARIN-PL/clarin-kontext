@@ -104,12 +104,6 @@ class KwicConnect:
     providers: List[Any] = field(default_factory=list)
 
 
-@dataclass_json
-@dataclass
-class TokensLinking:
-    providers: List[Any] = field(default_factory=list)
-
-
 class PosCategoryItem(NamedTuple):
     pattern: str
     pos: str
@@ -180,7 +174,7 @@ class MLPositionFilter(enum.Enum):
 
 @dataclass_json
 @dataclass
-class   CorpusInfo:
+class CorpusInfo:
     """
     Genereal corpus information and metadata.
     All the possible implementations are expected to
@@ -197,7 +191,6 @@ class   CorpusInfo:
     """
 
     id: Optional[str] = None
-    pid: Optional[str] = None # TODO see https://github.com/czcorpus/kontext/issues/6039
     name: Optional[str] = None
     description: Optional[str] = None  # filled in during localization
     _description_cs: Optional[str] = None
@@ -219,7 +212,6 @@ class   CorpusInfo:
     metadata: CorpusMetadata = field(default_factory=lambda: CorpusMetadata())
     token_connect: TokenConnect = field(default_factory=lambda: TokenConnect())
     kwic_connect: KwicConnect = field(default_factory=lambda: KwicConnect())
-    tokens_linking: TokensLinking = field(default_factory=lambda: TokensLinking())
     manatee: ManateeCorpusInfo = field(default_factory=lambda: ManateeCorpusInfo())
     default_view_opts: Dict[str, Any] = field(default_factory=dict)
     query_suggest: QuerySuggest = field(default_factory=lambda: QuerySuggest())

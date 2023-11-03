@@ -13,19 +13,20 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import hashlib
 import json
 import logging
-import secrets
+import uuid
 from functools import wraps
-from typing import Any, Callable, Coroutine, Optional, Type, Union, Tuple, Dict, Awaitable
+from typing import Any, Callable, Coroutine, Optional, Type, Union
 
 import settings
 from action.argmapping.action import create_mapped_args
 from action.errors import (
     AlignedCorpusForbiddenException, CorpusForbiddenException,
-    ForbiddenException, ImmediateRedirectException, UserReadableException)
+    ForbiddenException, ImmediateRedirectException, UserReadableException,
+    get_traceback)
 from action.krequest import KRequest
-from action.req_args import AnyRequestArgProxy
 from action.model import ModelsSharedData
 from action.model.abstract import AbstractPageModel, AbstractUserModel
 from action.model.base import BaseActionModel
@@ -36,7 +37,7 @@ from action.result.base import BaseResult
 from action.templating import CustomJSONEncoder, ResultType, TplEngine
 from action.theme import apply_theme
 from dataclasses_json import DataClassJsonMixin
-from sanic import HTTPResponse, Sanic, response
+from sanic import HTTPResponse, Sanic, Websocket, response
 from sanic.request import Request
 from templating import Type2XML
 
@@ -53,7 +54,6 @@ async def _output_result(
     depends on the combination of the 'return_type' argument and a type of the 'result'.
     Typical combinations are (ret. type, data type):
     'template' + dict
-    'template_xml' + dict
     'json' + dict (which may contain dataclass_json instances)
     'json' + dataclass_json
     'plain' + str
@@ -79,15 +79,8 @@ async def _output_result(
         return Type2XML.to_xml(result)
     elif action_props.return_type == 'plain' and not isinstance(result, (dict, DataClassJsonMixin)):
         return result
-    elif action_props.return_type == 'template_xml':
-        return tpl_engine.render(action_props.template, result, translate)
     elif action_props.return_type == 'template' and (result is None or isinstance(result, dict)):
         result = await action_model.add_globals(app, action_props, result)
-        result['nonce'] = nonce = secrets.token_urlsafe()
-        if app.config['debug_level'] == 0:
-            csp_header = ['script-src', '\'self\'',
-                          f'\'nonce-{nonce}\'', *app.config['csp_domains']]
-            resp.set_header('Content-Security-Policy', ' '.join(csp_header))
         if isinstance(result, dict):
             result['messages'] = resp.system_messages
         apply_theme(result, app, translate)
@@ -116,7 +109,6 @@ async def resolve_error(
     }
     await amodel.resolve_error_state(req, resp, ans, err)
     if isinstance(err, UserReadableException):
-        resp.add_system_message('error', str(err))
         resp.set_http_status(err.code)
         if err.error_args:
             ans['error_args'] = err.error_args
@@ -124,14 +116,7 @@ async def resolve_error(
         resp.add_system_message('error', str(err))
         resp.set_http_status(500)
     else:
-        resp.add_system_message('error', 'System problem detected. Please contact administrator.')
         resp.set_http_status(500)
-
-    if is_debug:
-        logging.getLogger(__name__).exception(err)
-        import traceback
-        resp.add_system_message('error', traceback.format_exc())
-
     resp.set_result(ans)
 
 
@@ -156,9 +141,7 @@ def http_action(
         mapped_args: Optional[Type] = None,
         mutates_result: bool = False,
         return_type: Optional[str] = None,
-        action_log_mapper: Optional[Callable[[KRequest], Any]] = None,
-        corpus_name_determiner: Optional[Callable[[AnyRequestArgProxy, Dict[str, Any]], Awaitable[Tuple[str, bool]]]] = None
-        ):
+        action_log_mapper: Optional[Callable[[KRequest], Any]] = None):
     """
     http_action decorator wraps Sanic view functions to provide more
     convenient arguments (including important action models). KonText
@@ -179,19 +162,12 @@ def http_action(
                       it should store actual result data. This is particularly important for concordance
                       actions like filters, sorting etc. where the concordance changes based on the previous
                       state.
-    return_type -- specifies how the result data should be interpreted for the client:
-                    * plain - raw data send to a response body
-                    * json - result data marshaled to JSON
-                    * template - data written to HTML using a Jinja2 template
-                    * xml - result data marshaled to XML with some predefined elements
-                    * template_xml - result data written to XML using a Jinja2 template
+    return_type -- specifies how the result data should be interpreted for the client {plain, json, template, xml}.
                    In some cases, a single result type (typically a Dict) can be transformed into multiple formats
                    (html page, xml file, json file, plain text file) but in other cases the choice is limited
                    (e.g. when returning some binary data, only 'plain' return_type makes sense).
                    In case a custom Content-Type is needed, return_type must be set to 'plain', otherwise KonText
                    will force predefined type (e.g. for template it is text/html etc.).
-    corpus_name_determiner -- a custom function to determine which corpus is required via URL; this is mostly
-                              intended for special modules (e.g. FCS) which require non-standard ways for this
     """
     def decorator(func: Callable[[AbstractPageModel, KRequest, KResponse], Coroutine[Any, Any, Optional[ResultType]]]):
         @wraps(func)
@@ -226,8 +202,7 @@ def http_action(
                 action_name=action_name, action_prefix=action_prefix,
                 access_level=runtime_access_level,
                 return_type=return_type, page_model=page_model, template=template,
-                mutates_result=mutates_result, action_log_mapper=action_log_mapper,
-                corpus_name_determiner=corpus_name_determiner)
+                mutates_result=mutates_result, action_log_mapper=action_log_mapper)
             expl_return_type = get_explicit_return_type(req)
             if expl_return_type:
                 aprops.return_type = expl_return_type
@@ -262,6 +237,7 @@ def http_action(
             except Exception as ex:
                 if aprops.return_type == 'plain':
                     raise
+                resp.add_system_message('error', str(ex))
                 await resolve_error(amodel, req, resp, ex, settings.is_debug_mode())
                 if aprops.template:
                     aprops.template = 'message.html'
@@ -271,6 +247,12 @@ def http_action(
                         amodel.disable_menu_on_forbidden_corpus()
                 if not aprops.return_type:
                     aprops.return_type = 'template'
+                if settings.is_debug_mode():
+                    import traceback
+                    err_id = hashlib.sha1(str(uuid.uuid1()).encode('ascii')).hexdigest()
+                    logging.getLogger(__name__).error(
+                        '{0}\n@{1}\n{2}'.format(ex, err_id, ''.join(get_traceback())))
+                    resp.add_system_message('error', traceback.format_exc())
 
             if resp.result is None:
                 resp_body = None
@@ -282,20 +264,10 @@ def http_action(
                     tpl_engine=application.ctx.templating,
                     translate=req.translate,
                     resp=resp)
-            out = HTTPResponse(
+            return HTTPResponse(
                 body=resp_body,
                 status=resp.http_status_code,
                 headers=resp.output_headers(aprops.return_type))
-            for cookie in resp.get_cookies():
-                out.add_cookie(
-                    key=cookie.name,
-                    value=cookie.value,
-                    path=cookie.path,
-                    expires=cookie.expires,
-                    samesite=cookie.same_site,
-                    secure=cookie.secure
-                )
-            return out
 
         return wrapper
     return decorator

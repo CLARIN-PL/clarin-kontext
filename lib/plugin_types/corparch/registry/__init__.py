@@ -241,16 +241,16 @@ class RegistryConf:
                 return split_clean(',', item.value)
         return []
 
-    async def save(self, cursor):
+    async def save(self):
         # top level keys and values
         created_rt = await self._backend.save_registry_table(
-            cursor, self._corpus_id, self._variant, [(x.name, x.value) for x in self.simple_items])
+            corpus_id=self._corpus_id, variant=self._variant,
+            values=[(x.name, x.value) for x in self.simple_items])
         # now we fill in self references MAPTO, FROMATTR
         for pos in self.posattrs:
             fromattr_id = None
             mapto_id = None
-            await self._backend.update_corpus_posattr_references(
-                cursor, self._corpus_id, pos.name, fromattr_id, mapto_id)
+            await self._backend.update_corpus_posattr_references(self._corpus_id, pos.name, fromattr_id, mapto_id)
             for pitem in pos.attrs:
                 if pitem.name == 'FROMATTR':
                     fromattr_id = pitem.value
@@ -258,19 +258,19 @@ class RegistryConf:
                     mapto_id = pitem.value
             if fromattr_id is not None or mapto_id is not None:
                 await self._backend.update_corpus_posattr_references(
-                    cursor, self._corpus_id, pos.name, fromattr_id, mapto_id)
+                    self._corpus_id, pos.name, fromattr_id, mapto_id)
 
         if created_rt:
             # positional attributes
             for pos in self.posattrs:
                 await self._backend.save_corpus_posattr(
-                    cursor, self._corpus_id, pos.name, pos.position, [(x.name, x.value) for x in pos.attrs])
+                    self._corpus_id, pos.name, pos.position, [(x.name, x.value) for x in pos.attrs])
 
             # structures >>>
             for i, struct in enumerate(self.structs):
                 await self._backend.save_corpus_structure(
-                    cursor=cursor, corpus_id=self._corpus_id, name=struct.name, position=i,
-                    values=[(x.name, x.value) for x in struct.simple_items])
+                    corpus_id=self._corpus_id, name=struct.name, position=i, values=[
+                        (x.name, x.value) for x in struct.simple_items])
 
                 for i, structattr in enumerate(struct.attributes):
                     await self._backend.save_corpus_structattr(
@@ -284,7 +284,7 @@ class RegistryConf:
             for i, fc in enumerate(self.freqttattrs):
                 struct, attr = sc.split('.')
                 await self._backend.save_freqttattr(self._corpus_id, struct, attr, i)
-        await cursor.connection.commit()
+        await self._backend.commit()
         return dict(corpus_id=self._corpus_id, aligned=self.aligned, created_rt=created_rt)
 
     async def load(self):

@@ -30,9 +30,9 @@ class DisplayLinkBackend(AbstractBackend):
     load any content from the target service in this case.
     """
 
-    def __init__(self, conf, provider_id, db, ttl):
-        super().__init__(conf, provider_id, db, ttl)
-        self._label = conf.get('label', {})
+    def __init__(self, conf, ident, db, ttl):
+        super().__init__(ident, db, ttl)
+        self._conf = conf
 
     def get_required_attrs(self):
         return self._conf.get('posAttrs', [])
@@ -45,17 +45,8 @@ class DisplayLinkBackend(AbstractBackend):
             server = self._conf['server']
             path = self._conf['path']
             link = f'{proto_pref}{server}{path}'.format(**query_args)
-            label = self.fetch_localized_prop('_label', lang)
-            if label:
-                label = label.format(**query_args)
-            return dict(link=link, label=label), True
+            return dict(link=link), True
         return dict(), False
-
-
-class LemurLinkBackend(DisplayLinkBackend):
-
-    def supports_multi_tokens(self):
-        return False
 
 
 class HTTPBackend(AbstractBackend):
@@ -74,7 +65,8 @@ class HTTPBackend(AbstractBackend):
     """
 
     def __init__(self, conf, ident, db, ttl):
-        super().__init__(conf, ident, db, ttl)
+        super().__init__(ident, db, ttl)
+        self._conf = conf
         port_str = '' if self._conf.get('port', 80) else ':{}'.format(self._conf.get('port'))
         if self._conf['ssl']:
             self._client = HTTPClient('https://{}{}'.format(self._conf['server'], port_str))

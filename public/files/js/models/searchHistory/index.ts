@@ -273,8 +273,7 @@ export class SearchHistoryModel extends StatefulModel<SearchHistoryModelState> {
         const actions:{[k in Kontext.QuerySupertype]:string} = {
             conc: 'query',
             pquery: 'pquery/index',
-            wlist: 'wordlist/form',
-            kwords: 'keywords/form',
+            wlist: 'wordlist/form'
         };
         window.location.href = this.pageModel.createActionUrl(
             actions[item.q_supertype],

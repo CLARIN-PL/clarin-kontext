@@ -241,26 +241,24 @@ export function init({dispatcher, he, concDetailModel, refsDetailModel}:DetailMo
                         List.filter(r => !r.isKwicView),
                         List.map(
                             (v, i) => (
-                                v.found ?
-                                    <React.Fragment key={`resource:${i}`}>
-                                        <dt>
-                                        {v.heading ?
-                                            <>
-                                                <img src={he.createStaticUrl('img/book.svg')}
-                                                        alt={he.translate('global__icon_book')} />
-                                                {v.heading}:
-                                            </> :
-                                            null
-                                        }
-                                        </dt>
-                                        <dd>
-                                        <layoutViews.ErrorBoundary>
-                                            <v.renderer data={v.contents} />
-                                        </layoutViews.ErrorBoundary>
-                                        </dd>
-                                        {i > 0 ? <hr /> : null}
-                                    </React.Fragment> :
-                                    null
+                                <React.Fragment key={`resource:${i}`}>
+                                    <dt>
+                                    {v.heading ?
+                                        <>
+                                            <img src={he.createStaticUrl('img/book.svg')}
+                                                    alt={he.translate('global__icon_book')} />
+                                            {v.heading}:
+                                        </> :
+                                        null
+                                    }
+                                    </dt>
+                                    <dd>
+                                    <layoutViews.ErrorBoundary>
+                                        <v.renderer data={v.contents} />
+                                    </layoutViews.ErrorBoundary>
+                                    </dd>
+                                    {i > 0 ? <hr /> : null}
+                                </React.Fragment>
                             )
                         )
                     )}

@@ -22,9 +22,6 @@ export interface Props {
     onClick:(date:Date|null)=>void;
     currDate?:Date;
     firstDayOfWeek?:'mo'|'su'|'sa';
-    minDate?:Date;
-    maxDate?:Date;
-    rangeDate?:Date;
 }
 
 export type Component = React.FC<Props>;

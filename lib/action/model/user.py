@@ -13,18 +13,18 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import inspect
 import logging
 import os
 import time
 from dataclasses import fields
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-import bgcalc
 import corplib
 import plugins
 import settings
 from action.argmapping import UserActionArgs
-from action.errors import FunctionNotSupported, UserReadableException
+from action.errors import UserReadableException, FunctionNotSupported
 from action.krequest import KRequest
 from action.model import ModelsSharedData
 from action.model.abstract import AbstractUserModel
@@ -32,6 +32,7 @@ from action.model.base import BaseActionModel, BasePluginCtx
 from action.plugin.ctx import AbstractUserPluginCtx
 from action.props import ActionProps
 from action.response import KResponse
+import bgcalc
 from bgcalc.task import AsyncTaskStatus
 from corplib import CorpusFactory
 from main_menu import MainMenu, generate_main_menu
@@ -48,7 +49,7 @@ class UserActionModel(BaseActionModel, AbstractUserModel):
     and authenticated user). Any more complicated action model
     will likely inherit from this one.
 
-    The model also provides a CorpusFactory instance, yet it
+    The model also provides a CorpusFactory instance but it
     does not perform any implicit actions on it. It is provided
     purely for the 'view' functions.
     """
@@ -154,8 +155,6 @@ class UserActionModel(BaseActionModel, AbstractUserModel):
             data = self.session_get('settings')
             if not data:
                 data = {}
-            if 'shuffle' not in data:
-                data['shuffle'] = 1
             return data
 
     @staticmethod
@@ -329,20 +328,24 @@ class UserActionModel(BaseActionModel, AbstractUserModel):
         returns:
             True if job was found (and updated) else False
         """
-        worker = bgcalc.calc_backend_client(settings)
-        aresult = worker.AsyncResult(curr_at.ident)
-        if aresult:
-            curr_at.status = aresult.status
-            if curr_at.status == 'FAILURE':
-                result = aresult.get(timeout=2)
-                curr_at.error = str(result)
-                if not curr_at.error:
-                    curr_at.error = result.__class__.__name__
-            self._check_task_timeout(curr_at)
-            return True
+        backend = settings.get('calc_backend', 'type')
+        if backend in ('celery', 'rq'):
+            worker = bgcalc.calc_backend_client(settings)
+            aresult = worker.AsyncResult(curr_at.ident)
+            if aresult:
+                curr_at.status = aresult.status
+                if curr_at.status == 'FAILURE':
+                    result = aresult.get(timeout=2)
+                    curr_at.error = str(result)
+                    if not curr_at.error:
+                        curr_at.error = result.__class__.__name__
+                self._check_task_timeout(curr_at)
+                return True
+            else:
+                logging.getLogger(__name__).warning(f'Background job not found: {curr_at.ident}')
+                return False
         else:
-            logging.getLogger(__name__).warning(f'Background job not found: {curr_at.ident}')
-            return False
+            raise FunctionNotSupported(f'Backend {backend} does not support status checking')
 
     async def get_async_tasks(
             self,
@@ -399,7 +402,6 @@ class UserActionModel(BaseActionModel, AbstractUserModel):
         result = await super().add_globals(app, action_props, result)
         await self.export_optional_plugins_conf(result)
         self.configure_auth_urls(result)
-        result['manatee_is_custom_cnc'] = corplib.manatee_is_custom_cnc()
         result['conc_url_ttl_days'] = None
         result['corpus_ident'] = {}
         result['Globals'] = {}

@@ -18,9 +18,8 @@
 
 
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Tuple, Union, Dict, Awaitable
+from typing import Any, Callable, Optional, Tuple, Union
 from action.result.base import BaseResult
-from action.req_args import AnyRequestArgProxy
 from action.krequest import KRequest
 
 
@@ -53,5 +52,3 @@ class ActionProps:
     mutates_result: bool = False
 
     action_log_mapper: Callable[[KRequest], Any] = False
-
-    corpus_name_determiner: Callable[[AnyRequestArgProxy, Dict[str, Any]], Awaitable[Tuple[str, bool]]] = None

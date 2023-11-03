@@ -88,7 +88,6 @@ export interface QueryToolbarProps {
     switchMcFormProps:SwitchMainCorpFormProps;
     filterSubHitsFormProps:SubHitsFormProps;
     filterFirstDocHitsFormProps:FirstHitsFormProps;
-    filterFirstSentHitsFormProps:FirstHitsFormProps;
     sortFormProps:SortFormProps;
     cutoff:number;
 }
@@ -310,7 +309,7 @@ export function init({
                                 operationIdx={props.operationIdx}
                                 opKey={props.opKey}
                                 formType={Kontext.ConcFormTypes.SUBHITS}
-                                submitFn={props.modeRunFullQuery ? props.closeClickHandler : handleTrimClick} />;
+                                submitFn={()=>undefined} />;
 
                 case Kontext.ConcFormTypes.FIRSTHITS:
                     return <viewDeps.FirstHitsForm {...props.editorProps}
@@ -645,8 +644,7 @@ export function init({
         shuffleFormProps:ShuffleFormProps;
         switchMcFormProps:SwitchMainCorpFormProps;
         filterSubHitsFormProps:SubHitsFormProps;
-        filterFirstDocHitsFormProps:FirstHitsFormProps
-        filterFirstSentHitsFormProps:FirstHitsFormProps;
+        filterFirstDocHitsFormProps:FirstHitsFormProps;
     }
 
     /**
@@ -677,14 +675,9 @@ export function init({
                 case MainMenuActions.FilterApplySubhitsRemove.name:
                     return <viewDeps.SubHitsForm {...props.filterSubHitsFormProps}
                                     opKey="__new__" />;
-                case MainMenuActions.FilterApplyFirstOccurrencesInDocs.name:
-                    return <viewDeps.FirstHitsForm
-                                {...props.filterFirstDocHitsFormProps}
-                                opKey="__new__" />;
-                case MainMenuActions.FilterApplyFirstOccurrencesInSentences.name:
-                    return <viewDeps.FirstHitsForm
-                                {...props.filterFirstSentHitsFormProps}
-                                opKey="__new__" />;
+                case MainMenuActions.FilterApplyFirstOccurrences.name:
+                    return <viewDeps.FirstHitsForm {...props.filterFirstDocHitsFormProps}
+                                    opKey="__new__" />;
                 case MainMenuActions.ShowSwitchMc.name:
                     return <viewDeps.SwitchMainCorpForm {...props.switchMcFormProps}
                                             formType={Kontext.ConcFormTypes.SWITCHMC} />;
@@ -701,8 +694,7 @@ export function init({
                 [MainMenuActions.ApplyShuffle.name]: () => tuple(Kontext.ConcFormTypes.SHUFFLE, null),
                 [MainMenuActions.ShowSwitchMc.name]: () => tuple(Kontext.ConcFormTypes.SWITCHMC, null),
                 [MainMenuActions.FilterApplySubhitsRemove.name]: () => tuple(Kontext.ConcFormTypes.SUBHITS, null),
-                [MainMenuActions.FilterApplyFirstOccurrencesInDocs.name]: () => tuple(Kontext.ConcFormTypes.FIRSTHITS, null),
-                [MainMenuActions.FilterApplyFirstOccurrencesInSentences.name]: () => tuple(Kontext.ConcFormTypes.FIRSTHITS, null)
+                [MainMenuActions.FilterApplyFirstOccurrences.name]: () => tuple(Kontext.ConcFormTypes.FIRSTHITS, null)
             };
             const [ident, subtype] = m[props.menuActiveItem.actionName](props.menuActiveItem.actionArgs);
             const opname = formTypeToTitle(ident, subtype);
@@ -848,8 +840,7 @@ export function init({
                 MainMenuActions.ShowSample.name,
                 MainMenuActions.ShowFilter.name,
                 MainMenuActions.FilterApplySubhitsRemove.name,
-                MainMenuActions.FilterApplyFirstOccurrencesInDocs.name,
-                MainMenuActions.FilterApplyFirstOccurrencesInSentences.name
+                MainMenuActions.FilterApplyFirstOccurrences.name
             ];
             if (this.props.activeItem !== null &&
                     List.findIndex(v => v === this.props.activeItem.actionName, actions) > -1) {

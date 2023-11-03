@@ -22,15 +22,16 @@ It can be run in two modes:
  2) within a WSGI-enabled web server (Gunicorn, uwsgi, Apache + mod_wsgi)
 """
 import asyncio
-import hashlib
 import locale
 import logging
 import os
-import secrets
+import signal
 import sys
-import tempfile
+import hashlib
 from datetime import datetime, timedelta, timezone
 from logging.handlers import QueueListener
+import secrets
+import tempfile
 
 from concurrent_log_handler import ConcurrentRotatingFileHandler
 
@@ -52,9 +53,7 @@ LOCALE_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__), '../local
 JWT_COOKIE_NAME = 'kontext_jwt'
 JWT_ALGORITHM = 'HS256'
 DFLT_HTTP_CLIENT_TIMEOUT = 20
-# a file for storing soft-reset token (the stored value is auto-generated on each (re)start)
-SOFT_RESET_TOKEN_FILE = os.path.join(
-    tempfile.gettempdir(), 'kontext_srt', hashlib.sha1(CONF_PATH.encode()).hexdigest())
+SOFT_RESET_TOKEN_DIR = 'kontext_srt'  # the token allows for remote soft reset; it is auto generated on each startup
 
 from typing import Optional
 
@@ -63,12 +62,12 @@ import jwt
 import plugins
 import plugins.export
 import settings
+from babel import support
 from action.context import ApplicationContext
+from action.cookie import KonTextCookie
 from action.plugin.initializer import install_plugin_actions, setup_plugins
 from action.templating import TplEngine
-from babel import support
 from jwt.exceptions import ExpiredSignatureError, InvalidSignatureError
-from log_formatter import KontextLogFormatter
 from sanic import Request, Sanic
 from sanic.exceptions import NotFound
 from sanic.response import HTTPResponse, json
@@ -80,7 +79,6 @@ from views.dispersion import bp as dispersion_bp
 from views.fcs import bp_common as fcs_common_bp
 from views.fcs import bp_v1 as fcs_v1_bp
 from views.freqs import bp as freqs_bp
-from views.keywords import bp as keywords_bp
 from views.options import bp as options_bp
 from views.pquery import bp as pquery_bp
 from views.root import bp as root_bp
@@ -92,7 +90,7 @@ from views.wordlist import bp as wordlist_bp
 
 # we ensure that the application's locale is always the same
 locale.setlocale(locale.LC_ALL, 'en_US.utf-8')
-logger = logging.getLogger()  # root logger
+logger = logging.getLogger('')  # root logger
 
 
 def setup_logger(conf) -> Optional[logging.handlers.QueueListener]:
@@ -113,8 +111,7 @@ def setup_logger(conf) -> Optional[logging.handlers.QueueListener]:
         queue = Queue()
         listener = QueueListener(queue, handler)
         listener.start()
-
-    handler.setFormatter(KontextLogFormatter())
+    handler.setFormatter(logging.Formatter(fmt='%(asctime)s [%(name)s] %(levelname)s: %(message)s'))
     logger.addHandler(handler)
     logger.setLevel(logging.INFO if not settings.is_debug_mode() else logging.DEBUG)
     return listener
@@ -135,10 +132,8 @@ log_listener = setup_logger(settings)
 
 application = Sanic('kontext')
 
-application.config['debug_level'] = settings.debug_level()
 application.config['action_path_prefix'] = settings.get_str('global', 'action_path_prefix', '/')
 application.config['redirect_safe_domains'] = settings.get('global', 'redirect_safe_domains', ())
-application.config['csp_domains'] = settings.get('global', 'csp_domains', ())
 application.config['cookies_same_site'] = settings.get('global', 'cookies_same_site', None)
 application.config['static_files_prefix'] = settings.get(
     'global', 'static_files_prefix', '../files')
@@ -148,7 +143,6 @@ application.blueprint(conc_bp)
 application.blueprint(user_bp)
 application.blueprint(corpora_bp)
 application.blueprint(wordlist_bp)
-application.blueprint(keywords_bp)
 application.blueprint(freqs_bp)
 application.blueprint(dispersion_bp)
 application.blueprint(colls_bp)
@@ -171,6 +165,14 @@ application.ctx = ApplicationContext(
     tt_cache=tt_cache)
 
 
+async def sigusr1_handler():
+    logging.getLogger(__name__).warning('Caught signal SIGUSR1')
+    for p in plugins.runtime:
+        fn = getattr(p.instance, 'on_soft_reset', None)
+        if callable(fn):
+            await fn()
+    await tt_cache.clear_all()
+
 def load_translations(app: Sanic):
     app.ctx.translations = {}
     for loc in settings.get_list('global', 'translations'):
@@ -179,21 +181,10 @@ def load_translations(app: Sanic):
         app.ctx.translations[loc] = catalog
 
 
-@application.listener('main_process_start')
-async def main_process_init(*_):
-    # create a token file for soft restart
-    if not os.path.isdir(os.path.dirname(SOFT_RESET_TOKEN_FILE)):
-        os.mkdir(os.path.dirname(SOFT_RESET_TOKEN_FILE))
-    key = secrets.token_hex(32)
-    with open(SOFT_RESET_TOKEN_FILE, 'w') as ttf:
-        ttf.write(key)
-    logging.getLogger(__name__).info(
-        f'setting soft restart token {key[:5]}..., file {os.path.basename(SOFT_RESET_TOKEN_FILE)[:5]}...')
-
-
 @application.listener('before_server_start')
 async def server_init(app: Sanic, loop: asyncio.BaseEventLoop):
     setproctitle(f'sanic-kontext [{CONF_PATH}][worker]')
+    loop.add_signal_handler(signal.SIGUSR1, lambda: asyncio.create_task(sigusr1_handler()))
     # init extensions fabrics
     app.ctx.client_session = aiohttp.ClientSession()
     # runtime conf (this should have its own module in the future)
@@ -205,11 +196,16 @@ async def server_init(app: Sanic, loop: asyncio.BaseEventLoop):
     app.ctx.kontext_conf = {'http_client_timeout_secs': http_client_conf}
     # load all translations
     load_translations(app)
-    # load restart token
-    with open(SOFT_RESET_TOKEN_FILE, 'r') as ttf:
-        app.ctx.soft_restart_token = ttf.read().strip()
-        logging.getLogger(__name__).info(
-            f'worker is attaching soft-restart token {app.ctx.soft_restart_token[:5]}...')
+    # create a token file for soft restart
+    srt_dir = os.path.join(tempfile.gettempdir(), SOFT_RESET_TOKEN_DIR)
+    if not os.path.isdir(srt_dir):
+        os.mkdir(srt_dir)
+    key = secrets.token_hex(32)
+    app.ctx.soft_restart_token = key
+    fname = hashlib.sha1(CONF_PATH.encode()).hexdigest()
+    with open(os.path.join(srt_dir, fname), 'w') as ttf:
+        ttf.write(key)
+    logging.getLogger(__name__).warning(f'setting soft restart token {key[:5]}..., file {fname[:5]}...')
 
 
 @application.listener('after_server_stop')
@@ -244,7 +240,6 @@ async def set_locale(request: Request):
         request.ctx.translations = support.NullTranslations()
         logging.getLogger(__name__).warning(f'Requested unsupported locale {request.ctx.locale}')
 
-
 @application.middleware('response')
 async def store_jwt(request: Request, response: HTTPResponse):
     ttl = settings.get_int('global', 'jwt_ttl_secs', 3600)
@@ -258,7 +253,7 @@ async def store_jwt(request: Request, response: HTTPResponse):
 
 
 @application.signal('kontext.internal.reset')
-async def handle_soft_reset_signal():
+async def handle_internal_soft_reset_signal():
     for p in plugins.runtime:
         fn = getattr(p.instance, 'on_soft_reset', None)
         if callable(fn):
@@ -268,8 +263,6 @@ async def handle_soft_reset_signal():
 
 @application.route('/soft-reset', methods=['POST'])
 async def soft_reset(req):
-    logging.getLogger(__name__).warning("key = {}".format(req.args.get('key')))
-    logging.getLogger(__name__).warning("expected = {}".format(application.ctx.soft_restart_token))
     if req.args.get('key') == application.ctx.soft_restart_token:
         await application.dispatch('kontext.internal.reset')
         return json(dict(ok=True))
@@ -281,11 +274,13 @@ def get_locale(request: Request) -> str:
     """
     Gets user locale based on request data
     """
+    cookies = KonTextCookie(request.headers.get('cookie', ''))
+
     with plugins.runtime.GETLANG as getlang:
         if getlang is not None:
-            lgs_string = getlang.fetch_current_language(request.cookies)
+            lgs_string = getlang.fetch_current_language(cookies)
         else:
-            lang_cookie = request.cookies.get('kontext_ui_lang')
+            lang_cookie = cookies.get('kontext_ui_lang')
             if not lang_cookie:
                 langs = request.headers.get('accept-language')
                 if langs:
@@ -332,20 +327,16 @@ if __name__ == '__main__':
     if args.debugpy:
         if '_DEBUGPY_RUNNING' not in os.environ:
             import debugpy
-            debugpy.listen((args.address, 5678))
+            debugpy.listen(('0.0.0.0', 5678))
             os.environ['_DEBUGPY_RUNNING'] = '1'
 
     try:
         setproctitle(f'sanic-kontext [{CONF_PATH}][master]')
         if args.debugmode and not settings.is_debug_mode():
             settings.activate_debug()
-        if settings.is_debug_mode():
-            application.config.INSPECTOR = True
-            application.config.INSPECTOR_HOST = args.address
-            application.config.INSPECTOR_PORT = 6457
         application.run(
             host=args.address, port=int(args.port_num), workers=args.workers, debug=settings.is_debug_mode(),
-            access_log=False, auto_reload=args.use_reloader)
+            access_log=False)
     finally:
         if log_listener:
             log_listener.stop()

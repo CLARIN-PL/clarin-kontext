@@ -36,7 +36,6 @@ export function preloadImages(...images) {
 preloadImages(backgroundSrc);
 
 export const mediaPhone = '@media screen and (max-width: 479px)';
-export const mediaNoPhone = '@media screen and (min-width: 480px)';
 export const mediaTablet = '@media screen and (max-width: 1200px), screen and (orientation:portrait)';
 
 export const mainBackground = `url(${backgroundSrc})`;
@@ -62,7 +61,6 @@ export const colorSectionBg = '#f3fbed';
 export const colorDefaultGreen = '#D1ECBF';
 export const colorLightGreen = '#EEF7F1';
 export const colorGreenBgHighlighted = '#F0FDBE';
-export const defaultBgHighlighted = colorGreenBgHighlighted;
 
 export const colorLogoPink = '#E2007A';
 export const colorLightPink = '#FFC8AD';

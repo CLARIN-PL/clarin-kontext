@@ -417,12 +417,6 @@ msgstr "Odstranit vnořené shody"
 msgid "First hits in documents"
 msgstr "První nálezy v dokumentech"
 
-msgid "First hits in sentences"
-msgstr "První nálezy ve větách"
-
-msgid "First hits in"
-msgstr "První nálezy v"
-
 msgid "Sign in"
 msgstr "Přihlášení"
 
@@ -563,42 +557,3 @@ msgstr "Odkaz na frekvenční tabulku v KonTextu"
 
 msgid "KonText user {} has sent to you a link to a frequency distribution table"
 msgstr "Uživatel KonTextu {} vám zaslal odkaz na tabulku frekvenční distribuce"
-
-msgid "Keywords analysis"
-msgstr "Analýza klíčových slov"
-
-msgid "noun"
-msgstr "podstatné jméno"
-
-msgid "adjective"
-msgstr "přídavné jméno"
-
-msgid "pronoun"
-msgstr "zájmeno"
-
-msgid "numeral"
-msgstr "číslovka"
-
-msgid "verb"
-msgstr "sloveso"
-
-msgid "adverb"
-msgstr "příslovce"
-
-msgid "preposition"
-msgstr "předložka"
-
-msgid "conjunction"
-msgstr "spojka"
-
-msgid "particle"
-msgstr "částice"
-
-msgid "interjection"
-msgstr "citoslovce"
-
-msgid "punctuation"
-msgstr "interpunkce"
-
-msgid "unknown"
-msgstr "neznámý"

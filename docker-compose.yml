@@ -2,6 +2,7 @@ version: "3"
 
 services:
   kontext:
+    container_name: kontext_kontext_1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile.kontext-jammy
@@ -27,6 +28,7 @@ services:
         condition: service_healthy
 
   rq-scheduler:
+    container_name: kontext_rq-scheduler_1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile.rqscheduler
@@ -40,6 +42,7 @@ services:
         condition: service_started
 
   rq-worker:
+    container_name: kontext_rq-worker_1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile.rqworker-jammy
@@ -56,6 +59,7 @@ services:
         condition: service_started
 
   redis:
+    container_name: kontext_redis_1
     image: redis:latest
     networks:
       - databases
@@ -70,6 +74,7 @@ services:
       retries: 5
 
   nginx:
+    container_name: kontext_nginx_1
     image: nginx:latest
     ports:
       - "8080:80"

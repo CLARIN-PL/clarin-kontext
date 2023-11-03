@@ -70,6 +70,7 @@ class SettingsStorage(AbstractSettingsStorage):
                 corp_set[tmp[0]][tmp[1]] = v
             else:
                 gen[k] = v
+
         for corp, data in corp_set.items():
             await self.save(user_id, corp, data)
 

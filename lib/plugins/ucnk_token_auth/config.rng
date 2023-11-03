@@ -15,7 +15,7 @@
                     - defaultAuth should do the job in most cases.
                 </a:documentation>
                 <choice>
-                    <value>auth</value>
+                    <value>defaultAuth</value>
                 </choice>
             </element>
             <element name="anonymous_user_id">

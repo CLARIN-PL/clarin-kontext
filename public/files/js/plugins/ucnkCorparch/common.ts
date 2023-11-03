@@ -20,7 +20,7 @@
  * Common types and functions used by plug-in objects
  */
 
-import {CorplistItem} from '../corparch/common';
+import {CorplistItem} from '../defaultCorparch/common';
 
 /**
  * Generalized corplist item which may refer to a single

@@ -18,12 +18,12 @@
 
 import * as React from 'react';
 import * as Kontext from '../../../types/kontext';
-import { init as defaultViewInit } from '../../corparch/corplistView';
+import { init as defaultViewInit } from '../../defaultCorparch/corplistView';
 import { corplistItemIsUcnk } from '../common';
 import { CorplistTableModel, CorplistTableModelState } from '../corplist';
 import { IActionDispatcher, BoundWithProps } from 'kombo';
-import { CorplistItem } from '../../corparch/common';
-import { Actions as DefaultActions} from '../../corparch/actions';
+import { CorplistItem } from '../../defaultCorparch/common';
+import { Actions as DefaultActions} from '../../defaultCorparch/actions';
 import { Actions } from '../actions';
 import * as S from './style';
 

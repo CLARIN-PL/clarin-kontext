@@ -19,15 +19,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import { DefaultTokenConnectBackend } from '../tokenConnect/init';
+import { DefaultTokenConnectBackend } from '../defaultTokenConnect/init';
 import * as PluginInterfaces from '../../types/plugins';
-import { init as initDefaultView, Views as DefaultTokenConnectRenderers } from '../tokenConnect/views';
+import { init as initDefaultView, Views as DefaultTokenConnectRenderers } from '../defaultTokenConnect/views';
 import { init as initLindatView, Views as LindatTokenConnectRenderers } from './view';
-import { KnownRenderers } from '../kwicConnect/model';
+import { KnownRenderers } from '../defaultKwicConnect/model';
 import { IPluginApi } from '../../types/plugins/common';
 
 declare var require:any;
-require('../tokenConnect/style.css');
+require('../defaultTokenConnect/style.css');
 
 
 export type ServerExportedConf = {

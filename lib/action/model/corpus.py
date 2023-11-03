@@ -19,7 +19,6 @@
 
 
 import logging
-import urllib.parse
 from dataclasses import asdict
 from functools import partial
 from typing import (
@@ -191,11 +190,10 @@ class CorpusActionModel(UserActionModel):
             True if query params have been loaded else False (which is still not an error)
         """
         url_q = req_args.getlist('q')[:]
-        with plugins.runtime.QUERY_PERSISTENCE as query_persistence, plugins.runtime.DISPATCH_HOOK as dh:
+        with plugins.runtime.QUERY_PERSISTENCE as query_persistence:
             if len(url_q) > 0 and query_persistence.is_valid_id(url_q[0]):
                 self._q_code = url_q[0][1:]
-                aqdata = await query_persistence.open(self._q_code)
-                self._active_q_data = await dh.transform_stored_query_data(aqdata) if dh is not None else aqdata
+                self._active_q_data = await query_persistence.open(self._q_code)
                 # !!! must create a copy here otherwise _q_data (as prev query)
                 # will be rewritten by self.args.q !!!
                 if self._active_q_data is not None:
@@ -238,10 +236,7 @@ class CorpusActionModel(UserActionModel):
         with plugins.runtime.AUTH as auth:
             is_api = action_props.return_type == 'json' or req_args.getvalue(
                 'format') == 'json'
-            if not self._corpus_name_determiner:
-                corpname, redirect = await self._determine_curr_corpus(req_args, is_api)
-            else:
-                corpname, redirect = await self._corpus_name_determiner(req_args, self.session_get('user'))
+            corpname, redirect = await self._determine_curr_corpus(req_args, is_api)
             has_access, variant = await auth.validate_access(corpname, self.session_get('user'))
             if has_access and redirect:
                 url_pref = action_props.action_prefix + '/' if action_props.action_prefix else ''
@@ -513,8 +508,6 @@ class CorpusActionModel(UserActionModel):
         result['righttoleft'] = True if self.corp.get_conf('RIGHTTOLEFT') else False
         corp_info = await self.get_corpus_info(getattr(self.args, 'corpname'))
         result['bib_conf'] = corp_info.metadata
-        result['sentence_struct'] = corp_info.sentence_struct
-        result['doc_struct'] = self.corp.get_conf('DOCSTRUCTURE')
         result['simple_query_default_attrs'] = corp_info.simple_query_default_attrs
         if corp_info.preflight_subcorpus:
             result['conc_preflight'] = dict(
@@ -529,7 +522,7 @@ class CorpusActionModel(UserActionModel):
             if tagset.ident == corp_info.default_tagset:
                 poslist = tagset.pos_category
                 break
-        result['Wposlist'] = [{'n': self._req.translate(x.pos), 'v': x.pattern} for x in poslist]
+        result['Wposlist'] = [{'n': x.pos, 'v': x.pattern} for x in poslist]
 
     def get_mapped_attrs(self, attr_names: Iterable[str], force_values: Optional[Dict] = None) -> Dict[str, Any]:
         """
@@ -717,8 +710,9 @@ class CorpusActionModel(UserActionModel):
                     if tagset.ident == corp_info.default_tagset:
                         poslist = tagset.pos_category
                         break
-                tpl_out['Wposlist_' + al] = [{'n': self._req.translate(x.pos), 'v': x.pattern} for x in poslist]
-                tpl_out['input_languages'][al] = corp_info.metadata.default_virt_keyboard if corp_info.metadata.default_virt_keyboard else corp_info.collator_locale
+                tpl_out['Wposlist_' + al] = [{'n': x.pos, 'v': x.pattern} for x in poslist]
+                tpl_out['input_languages'][al] = corp_info.metadata.default_virt_keyboard \
+                    if corp_info.metadata.default_virt_keyboard else corp_info.collator_locale
 
     async def create_preflight_subcorpus(self) -> str:
         with plugins.runtime.SUBC_STORAGE as sc:

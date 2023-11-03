@@ -169,7 +169,6 @@ export class ConcSaveModel extends StatefulModel<ConcSaveModelState> {
             action => {
                 this.changeState(state => {
                     state.toLine.value = `${action.payload.concsize}`;
-                    state.concSize = action.payload.concsize;
                 });
             }
         );

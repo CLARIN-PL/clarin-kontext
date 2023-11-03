@@ -31,7 +31,6 @@ from dataclasses_json import dataclass_json
 from plugin_types.corparch.corpus import TagsetInfo
 
 from .query import QueryFormArgs
-from .base import AbstractRawQueryDecoder
 
 
 @dataclass_json
@@ -45,9 +44,7 @@ class _FilterFormArgs:
     pnfilter: str = 'p'
     filfl: str = 'f'
     filfpos: str = '-5'
-    filfpos_unit: str = ''
     filtpos: str = '5'
-    filtpos_unit: str = ''
     inclkwic: bool = True
     qmcase: bool = False
     default_attr: str = 'word'
@@ -58,7 +55,7 @@ class _FilterFormArgs:
     no_query_history: bool = False
 
 
-class FilterFormArgs(ConcFormArgs[_FilterFormArgs], AbstractRawQueryDecoder):
+class FilterFormArgs(ConcFormArgs[_FilterFormArgs]):
     """
     FilterFormArgs provides methods to handle concordance filter
     form arguments represented by the _FilterFormArgs data class.
@@ -83,47 +80,14 @@ class FilterFormArgs(ConcFormArgs[_FilterFormArgs], AbstractRawQueryDecoder):
         self.data.pnfilter = data['pnfilter']
         self.data.filfl = data['filfl']
         self.data.filfpos = data['filfpos']
-        self.data.filfpos_unit = data['filfpos_unit']
+        self.data.filfpos = data['filfpos']
         self.data.filtpos = data['filtpos']
-        self.data.filtpos_unit = data['filtpos_unit']
         self.data.inclkwic = data['inclkwic']
         self.data.qmcase = data['qmcase']
         self.data.within = data.get('within')
         self.data.default_attr = data['default_attr']
         self.data.use_regexp = data.get('use_regexp', False)
         self.data.no_query_history = data.get('no_query_history', False)
-
-    def from_raw_query(self, q, corpname) -> 'FilterFormArgs':
-        """
-        Parses queries like: p-5 -1 1 [lc="author" & tag="N.*"]
-
-        TODO: please note that while we allow filters like p-1:s 2:s 1 [word="foo"]
-        (i.e. filter using non-token units - here "s" = sentence), the filter form
-        model does not support it so we strip the translated query into p-1 2 1 [word="foo"].
-        This does not concern the query going to Manatee, so the result is correct. But
-        our related form - if reused/reedited will produce a different result.
-        """
-        srch = re.search(r'^([nNpP])(-?\d+)(:\w+)?\s+(-?\d+)(:\w+)?\s+(-?\d+)\s+(.+)$', q)
-        if not srch:
-            raise ValueError('unsupported filter expression: {}'.format(q))
-        self.data.pnfilter = srch.group(1)
-        if srch.group(1) in ('n', 'p'):
-            self.data.inclkwic = True
-        else:
-            self.data.inclkwic = False
-        self.data.filfpos = srch.group(2)
-        self.data.filfpos_unit = srch.group(3)
-        self.data.filtpos = srch.group(4)
-        self.data.filtpos_unit = srch.group(5)
-        if srch.group(6) == '1':
-            self.data.filfl = 'f'
-        elif srch.group(6) == '-1':
-            self.data.filfl = 'l'
-        else:
-            raise ValueError(f'unsupported token selection value {srch.group(6)}; only 1 and -1 are supported')
-        self.data.query = srch.group(7)
-        self.data.query_type = 'advanced'
-        return self
 
     def apply_last_used_opts(self, data: Dict[str, Any]):
         self.data.filfpos = data['filfpos']
@@ -160,7 +124,7 @@ class _SubHitsFilterFormArgs:
     form_type: str = 'subhits'
 
 
-class SubHitsFilterFormArgs(ConcFormArgs[_SubHitsFilterFormArgs], AbstractRawQueryDecoder):
+class SubHitsFilterFormArgs(ConcFormArgs[_SubHitsFilterFormArgs]):
     """
     SubHitsFilterFormArgs provides methods to handle concordance "sub hits"
     filter form arguments represented by the _SubHitsFilterFormArgs data class.
@@ -170,32 +134,24 @@ class SubHitsFilterFormArgs(ConcFormArgs[_SubHitsFilterFormArgs], AbstractRawQue
         super().__init__(persist)
         self.data = _SubHitsFilterFormArgs()
 
-    def from_raw_query(self, q, corpname) -> 'SubHitsFilterFormArgs':
-        if q[1:] != "":
-            raise ValueError('Raw SubHitsFilterFormArgs query must be empty')
-        return self
-
 
 @dataclass_json
 @dataclass
 class _FirstHitsFilterFormArgs:
-    struct: str
+    doc_struct: str
     form_type: str = 'firsthits'
 
 
-class FirstHitsFilterFormArgs(ConcFormArgs[_FirstHitsFilterFormArgs], AbstractRawQueryDecoder):
+class FirstHitsFilterFormArgs(ConcFormArgs[_FirstHitsFilterFormArgs]):
     """
     FirstHitsFilterFormArgs provides methods to handle concordance "first hit in document"
     filter form arguments represented by the _SubHitsFilterFormArgs data class.
     """
 
-    def __init__(self, persist: bool, struct: str) -> None:
+    def __init__(self, persist: bool, doc_struct: str) -> None:
         super().__init__(persist)
-        self.data = _FirstHitsFilterFormArgs(struct=struct)
+        self.data = _FirstHitsFilterFormArgs(doc_struct=doc_struct)
 
-    def from_raw_query(self, q, corpname) -> 'FirstHitsFilterFormArgs':
-        self.data.struct = q[1:]
-        return self
 
 class ContextFilterArgsConv:
     """

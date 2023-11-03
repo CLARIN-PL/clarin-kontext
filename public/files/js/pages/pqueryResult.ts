@@ -65,17 +65,6 @@ class ParadigmaticQueryPage {
         );
     }
 
-    setDownloadLink(name:string, format:string, url:string, args?:any) {
-        this.layoutModel.bgDownload({
-            name,
-            format,
-            datasetType: DownloadType.PQUERY,
-            url,
-            contentType: 'text/plain',
-            args,
-        }).subscribe();
-    }
-
     init():void {
         this.layoutModel.init(true, [], () => {
 
@@ -95,8 +84,7 @@ class ParadigmaticQueryPage {
                     ),
                     this.layoutModel.getConf('AttrList'),
                     Kontext.structsAndAttrsToStructAttrList(this.layoutModel.getConf<Kontext.StructsAndAttrs>('structsAndAttrs')),
-                    this.layoutModel.getConf<boolean>('UseRichQueryEditor'),
-                    this.layoutModel.getConf<Kontext.PreflightConf>('concPreflight')
+                    this.layoutModel.getConf<boolean>('UseRichQueryEditor')
                 ),
                 this.layoutModel,
                 attrHelper
@@ -132,7 +120,16 @@ class ParadigmaticQueryPage {
             const saveModel = new PqueryResultsSaveModel({
                 dispatcher: this.layoutModel.dispatcher,
                 layoutModel: this.layoutModel,
-                saveLinkFn: this.setDownloadLink.bind(this),
+                saveLinkFn: (name:string, format:string, url:string, args?:any) => {
+                    this.layoutModel.bgDownload({
+                        name,
+                        format,
+                        datasetType: DownloadType.PQUERY,
+                        url,
+                        contentType: 'multipart/form-data',
+                        args,
+                    }).subscribe();
+                },
                 quickSaveRowLimit: 10000 // TODO
             });
 

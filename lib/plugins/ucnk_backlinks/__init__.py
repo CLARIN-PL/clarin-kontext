@@ -17,7 +17,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from sanic.blueprints import Blueprint
-from sanic.request import RequestParameters
 from plugin_types.backlinks import AbstractBacklinks
 from action.control import http_action
 from action.krequest import KRequest
@@ -26,7 +25,6 @@ from action.model.concordance import ConcActionModel
 from action.model.wordlist import WordlistActionModel
 from action.argmapping.wordlist import WordlistFormArgs
 from action.errors import UserReadableException
-from action.argmapping.conc import decode_raw_query
 from views.concordance import view_conc
 from views.wordlist import create_result as wl_create_result, view_result as wl_view_result
 
@@ -53,16 +51,11 @@ async def col_lemma(amodel: ConcActionModel, req: KRequest, resp: KResponse):
         raise UserReadableException('Missing parameter "cl"')
     if amodel.args.corpname not in ('syn_v11', ):
         raise UserReadableException('Function not supported in {}'.format(amodel.args.corpname))
+    amodel.args.q = ['q[col_lemma="{cl}"][]*[col_lemma="{cl}"] within <s />'.format(cl=cl)]
     pf = req.args.get('p')
-    if not pf:
-        pf = '.*'
-    pw = req.args.get('pw')
-    if not pw:
-        pw = '.*'
-    cl_attr = 'col_lemma'
-    amodel.args.q = [f'q(meet [{cl_attr}="{cl}"][{cl_attr}="{cl}" & lemma="{pf}"] 0 15)']
-    amodel.args.q.extend(['Fs', 'f'])
-    amodel.args.q.append(f'p0 15 -1 (meet[{cl_attr}="{cl}"][{cl_attr}="{cl}" & lc="{pw}"] -15 0)')
+    if pf:
+        amodel.args.q.append(f'p0 0 1 [lemma="{pf}"]')
+    amodel.args.q.extend(['D', 'f'])
     amodel.args.refs = '=doc.title,=doc.pubyear'
     amodel.args.pagesize = 50
     amodel.args.attrs = 'word'
@@ -70,12 +63,7 @@ async def col_lemma(amodel: ConcActionModel, req: KRequest, resp: KResponse):
     amodel.args.base_viewattr = 'word'
     amodel.args.structs = ''
     amodel.args.viewmode = 'sen'
-
-    form_args = await decode_raw_query(
-        amodel.plugin_ctx, [amodel.args.corpname], RequestParameters({'q': amodel.args.q}))
-    await amodel.store_unbound_query_chain(form_args)
-
-    return await view_conc(amodel, req, resp, 0, req.session_get('user', 'id'), disable_auclp=True)
+    return await view_conc(amodel, req, resp, 0, req.session_get('user', 'id'))
 
 
 @bp.route('/ic_tags')

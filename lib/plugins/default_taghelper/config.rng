@@ -8,7 +8,7 @@
                 <value>default_taghelper</value>
             </element>
             <element name="js_module">
-                <value>taghelper</value>
+                <value>defaultTaghelper</value>
             </element>
             <element name="clear_interval">
                 <a:documentation>

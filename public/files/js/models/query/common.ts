@@ -73,7 +73,7 @@ export interface ConcQueryArgs {
     usesubcorp:string|undefined;
     viewmode:ConcViewMode;
     pagesize:number;
-    shuffle:boolean;
+    shuffle:0|1;
     attrs:Array<string>;
     ctxattrs:Array<string>;
     attr_vmode:ViewOptions.AttrViewMode;
@@ -112,9 +112,7 @@ export interface FilterServerArgs extends ConcServerArgs {
     pnfilter:FilterTypes;
     filfl:string;
     filfpos:string;
-    filfpos_unit:string;
     filtpos:string;
-    filtpos_unit:string;
     inclkwic:boolean;
     qtype:QueryType;
     query:string;
@@ -1300,10 +1298,9 @@ export abstract class QueryFormModel<T extends QueryFormModelState> extends Stat
 
     private shouldAskForSuggestion(sourceId:string, srchWord:string):boolean {
         const queryObj = this.state.queries[sourceId];
-        // We allow suggestions in case regexp mode is enabled but we interpret
-        // the special characters as normal ones. I.e. only normal words will
-        // trigger a non-empty response.
-        const queryOptsOk = queryObj.qtype === 'simple';
+        // TODO maybe the 'use_regexp' should be allowed in case plug-in is OK with that
+        const queryOptsOk = queryObj.qtype === 'simple' && !queryObj.use_regexp ||
+            queryObj.qtype === 'advanced';
         return this.state.suggestionsConfigured && !!srchWord.trim() && queryOptsOk;
     }
 

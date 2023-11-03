@@ -105,8 +105,6 @@ export interface ConcQueryHistoryItem extends AbstractQueryHistoryItem {
         pcq_pos_neg:string;
         default_attr:string;
     }>;
-
-    form_type:'filter'|undefined; // TODO on server, the types are exactly like that (i.e. no 'conc' for concordance q.)
 }
 
 export interface WlistQueryHistoryItem extends AbstractQueryHistoryItem {
@@ -119,15 +117,10 @@ export interface PQueryHistoryItem extends AbstractQueryHistoryItem {
     q_supertype:'pquery';
 }
 
-export interface KwordsHistoryItem extends AbstractQueryHistoryItem {
-    q_supertype:'kwords';
-}
-
 export type QueryHistoryItem =
     ConcQueryHistoryItem |
     WlistQueryHistoryItem |
-    PQueryHistoryItem |
-    KwordsHistoryItem;
+    PQueryHistoryItem;
 
 export function isConcQueryHistoryItem(item:QueryHistoryItem):item is ConcQueryHistoryItem {
     return item.q_supertype === 'conc';

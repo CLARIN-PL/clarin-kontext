@@ -26,6 +26,10 @@ class ManateeWideCtxBackend(AbstractBackend):
     ELEMENT_HIERARCHY = ['document', 'text', 'paragraph',
                          'sentence', 'typeface', 'newLine', 'removeSpace']
 
+    def __init__(self, conf, ident, db, ttl):
+        super().__init__(ident, db, ttl)
+        self._conf = conf
+
     @cached
     async def fetch(self, corpora, maincorp, token_id, num_tokens, query_args, lang, is_anonymous, context=None, cookies=None):
         """

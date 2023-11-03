@@ -19,20 +19,9 @@
  */
 
 import styled from 'styled-components';
-import * as theme from '../../../views/theme/default';
 
 // ---------------- <FilterTypeSelector /> ---------------------------
 
 export const FilterTypeSelector = styled.div`
     margin-bottom: 1.3em;
-`;
-
-// ---------------- <RangeSelector /> --------------------------------
-
-export const RangeSelector = styled.div`
-    strong.unit {
-        font-size: 1.1em;
-        padding-left: 0.3em;
-        color: ${theme.colorLogoGreen};
-    }
 `;

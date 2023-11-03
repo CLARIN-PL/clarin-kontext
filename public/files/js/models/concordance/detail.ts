@@ -331,7 +331,6 @@ export class ConcDetailModel extends StatefulModel<ConcDetailModelState> {
                     this.resetTokenConnect(state);
                     state.tokenConnectIsBusy = true;
                 });
-
                 this.loadTokenConnect(
                     action.payload.corpusId,
                     action.payload.tokenNumber,

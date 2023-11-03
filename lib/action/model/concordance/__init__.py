@@ -17,17 +17,16 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import hashlib
 import os
 import re
 import urllib.parse
-from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple, Union
+import hashlib
+from collections import OrderedDict
 
 import conclib
 import plugins
 import settings
-import strings
 from action.argmapping import ConcArgsMapping
 from action.argmapping.conc import build_conc_form_args
 from action.argmapping.conc.filter import (
@@ -105,8 +104,7 @@ class ConcActionModel(CorpusActionModel):
                 curr_subcorp = self.args.usesubcorp
 
                 if prev_corpora and len(curr_corpora) == 1 and prev_corpora[0] == curr_corpora[0]:
-                    args = [('corpname', prev_corpora[0])] + [('align', a)
-                                                              for a in prev_corpora[1:]]
+                    args = [('corpname', prev_corpora[0])] + [('align', a) for a in prev_corpora[1:]]
 
                     subcorpora = await subc_arch.list(
                         self._req.ctx.session.get('user')['id'], SubcListFilterArgs(), corpname=prev_corpora[0])
@@ -274,22 +272,6 @@ class ConcActionModel(CorpusActionModel):
             self._output_last_op_id(
                 next_query_keys[-1] if len(next_query_keys) else None, resp.result)
 
-    async def store_unbound_query_chain(self, chain: List[Tuple[str, ConcFormArgs]]):
-        """
-        Based on provided list of (raw query, form data) pairs, store all the
-        operations like a standard KonText query chain. This is mostly used
-        when dealing with backlinks from other apps (see actions create_view,
-        create_lazy_view).
-        """
-        with plugins.runtime.QUERY_PERSISTENCE as qp:
-            self.args.q = []
-            for i, (raw_q, farg) in enumerate(chain):
-                self.args.q.append(raw_q)
-                self.set_curr_conc_form_args(farg)
-                if i < len(chain) - 1:
-                    new_ids, _ = await self._store_conc_params()
-                    self._active_q_data = await qp.open(new_ids[-1])
-
     async def _store_conc_params(self) -> Tuple[List[str], Optional[int]]:
         """
         Stores concordance operation if the query_persistence plugin is installed
@@ -309,11 +291,11 @@ class ConcActionModel(CorpusActionModel):
             lines_groups = prev_data.get('lines_groups', self._lines_groups.serialize())
             for q_idx, op in self._auto_generated_conc_ops:
                 prev = dict(id=ans[-1], lines_groups=lines_groups, q=getattr(self.args, 'q')[:q_idx],
-                            corpora=self.get_current_aligned_corpora(), usesubcorp=self.args.usesubcorp,
+                            corpora=self.get_current_aligned_corpora(), usesubcorp=getattr(self.args, 'usesubcorp'),
                             user_id=self.session_get('user', 'id'))
                 curr = dict(lines_groups=lines_groups,
                             q=getattr(self.args, 'q')[:q_idx + 1],
-                            corpora=self.get_current_aligned_corpora(), usesubcorp=self.args.usesubcorp,
+                            corpora=self.get_current_aligned_corpora(), usesubcorp=getattr(self.args, 'usesubcorp'),
                             lastop_form=op.to_dict(), user_id=self.session_get('user', 'id'))
                 ans.append(await qp.store(self.session_get('user', 'id'), curr_data=curr, prev_data=prev))
             return ans, history_ts
@@ -349,8 +331,7 @@ class ConcActionModel(CorpusActionModel):
                     if i < len(query_overview):
                         query_overview[i].conc_persistence_op_id = item.op_key
                     elif item.form_type != 'lgroup':
-                        raise RuntimeError(
-                            'Found a mismatch between Manatee query encoding and stored metadata')
+                        raise RuntimeError('Found a mismatch between Manatee query encoding and stored metadata')
 
         # Attach new form args added by the current action.
         if len(self._auto_generated_conc_ops) > 0:
@@ -371,17 +352,11 @@ class ConcActionModel(CorpusActionModel):
             sample=SampleFormArgs(persist=False).to_dict(),
             shuffle=ShuffleFormArgs(persist=False).to_dict(),
             firsthits=FirstHitsFilterFormArgs(
-                persist=False, struct=self.corp.get_conf('DOCSTRUCTURE')).to_dict())
+                persist=False, doc_struct=self.corp.get_conf('DOCSTRUCTURE')).to_dict())
         tpl_out['query_overview'] = [x.to_dict() for x in query_overview]
         if len(query_overview) > 0:
-            tpl_out['page_title'] = '{0} ({1})'.format(
-                strings.shorten(
-                    f'{self.corp.human_readable_corpname} / {tpl_out["query_overview"][0]["nicearg"]}',
-                    length=80,
-                    nice=True,
-                ),
-                self._req.translate('Concordance'),
-            )
+            tpl_out['page_title'] = '{0} / {1}'.format(
+                self.corp.human_readable_corpname, tpl_out['query_overview'][0]['nicearg'])
         return [x for x in conc_forms_args.values()]
 
     async def add_globals(self, app, action_props, result):
@@ -551,7 +526,7 @@ class ConcActionModel(CorpusActionModel):
         return dict(
             Lines=[], CorporaColumns=[], KWICCorps=[], pagination=pagination, Sort_idx=[],
             concsize=0, fullsize=0, sampled_size=0, result_relative_freq=0, result_arf=0,
-            result_shuffled=False, finished=True, merged_attrs=[], merged_ctxattrs=[])
+            result_shuffled=False, finished=True)
 
     def apply_linegroups(self, conc: KConc):
         """
@@ -614,23 +589,21 @@ class ConcActionModel(CorpusActionModel):
         out_list: List[ConcDescJsonItem] = []
         conc_desc = await conclib.get_conc_desc(corpus=self.corp, q=self.args.q, cutoff=self.args.cutoff)
 
-        def nicearg(arg, oid):
-            if oid == 'F':
-                return arg
+        def nicearg(arg):
             args = arg.split('"')
             niceargs = []
             prev_val = ''
             prev_other = ''
-            for i, arg_i in enumerate(args):
+            for i in range(len(args)):
                 if i % 2:
-                    tmparg = arg_i.strip('\\').replace('(?i)', '')
+                    tmparg = args[i].strip('\\').replace('(?i)', '')
                     if tmparg != prev_val or '|' not in prev_other:
                         niceargs.append(tmparg)
                     prev_val = tmparg
                 else:
-                    if arg_i.startswith('within'):
+                    if args[i].startswith('within'):
                         niceargs.append('within')
-                    prev_other = arg_i
+                    prev_other = args[i]
             return ', '.join(niceargs)
         # o,  a,    u1,   u2,   s,           opid
         # op, args, url1, url2, size, fsize, opid
@@ -642,7 +615,7 @@ class ConcActionModel(CorpusActionModel):
                 op=self._req.translate(op_item.op),
                 opid=op_item.opid,
                 args=op_item.args,
-                nicearg=nicearg(op_item.args, op_item.opid),
+                nicearg=nicearg(op_item.args),
                 tourl=urllib.parse.urlencode(op_item.url2),
                 size=op_item.size,
                 fullsize=op_item.fullsize))

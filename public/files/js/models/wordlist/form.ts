@@ -29,6 +29,7 @@ import { validateGzNumber } from '../base';
 import { PageModel } from '../../app/page';
 import { Actions } from './actions';
 import { Actions as MainMenuActions } from '../mainMenu/actions';
+import { Actions as QueryActions } from '../query/actions';
 import { Actions as GlobalActions } from '../common/actions';
 import { Actions as ATActions } from '../../models/asyncTask/actions';
 import {
@@ -545,7 +546,6 @@ export class WordlistFormModel extends StatelessModel<WordlistFormState> impleme
     private submitAction(state:WordlistFormState, dispatch:SEDispatcher):void {
         this.submit(state).subscribe({
             next: resp => {
-                // TODO this branch may not be in actual use any more
                 if (isConcFreqRedirectResponse(resp)) {
                     window.location.href = resp.location;
 

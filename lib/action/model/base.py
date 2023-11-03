@@ -14,20 +14,20 @@
 # GNU General Public License for more details.
 
 import hashlib
-from typing import Any, Dict, List, Optional, Tuple, Callable, Awaitable
-from sanic import Sanic
-from sanic.cookies.request import CookieRequestParameters
+from typing import Any, Dict, List, Optional, Tuple
 
 import l10n
 import settings
+from action.cookie import KonTextCookie
 from action.errors import UserReadableException
 from action.krequest import KRequest
 from action.model.abstract import AbstractPageModel
 from action.plugin.ctx import AbstractBasePluginCtx
 from action.props import ActionProps
-from action.req_args import create_req_arg_proxy, AnyRequestArgProxy
+from action.req_args import create_req_arg_proxy
 from action.response import KResponse
 from main_menu.model import AbstractMenuItem, MainMenuItemId
+from sanic import Sanic
 from action.model import ModelsSharedData
 
 
@@ -60,7 +60,6 @@ class BaseActionModel(AbstractPageModel):
         self._dynamic_menu_items: List[AbstractMenuItem] = []
         self._plg_shared = shared_data.plg_shared
         self._plugin_ctx: Optional[BasePluginCtx] = None
-        self._corpus_name_determiner: Callable[[AnyRequestArgProxy, Dict[str, Any]], Awaitable[Tuple[str, bool]]] = action_props.corpus_name_determiner
 
     @property
     def dynamic_menu_items(self):
@@ -74,7 +73,7 @@ class BaseActionModel(AbstractPageModel):
 
     @staticmethod
     def _is_valid_return_type(f: str) -> bool:
-        return f in ('template', 'template_xml', 'json', 'xml', 'plain')
+        return f in ('template', 'json', 'xml', 'plain')
 
     async def init_session(self) -> None:
         pass
@@ -209,7 +208,7 @@ class BasePluginCtx(AbstractBasePluginCtx):
         self._response.set_http_status(status)
 
     @property
-    def cookies(self) -> CookieRequestParameters:
+    def cookies(self) -> KonTextCookie:
         return self._request.cookies
 
     @property

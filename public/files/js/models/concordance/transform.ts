@@ -19,9 +19,8 @@
  */
 
 import { Dict, List, pipe } from 'cnc-tskit';
-import { HighlightWords, KWICSection, Line, PosAttrRole, ServerLineData, ServerTextChunk, TextChunk, Token } from './common';
+import { HighlightWords, KWICSection, Line, ServerLineData, ServerTextChunk, TextChunk, Token } from './common';
 import { ConclineSectionOps } from './line';
-import { defaultBgHighlighted } from '../../views/theme/default';
 
 
 /**
@@ -31,92 +30,52 @@ import { defaultBgHighlighted } from '../../views/theme/default';
  * @param startWlIdx "start within-line idx"
  * @returns
  */
-function importTextChunk(
-    item:ServerTextChunk,
-    mainAttrIdx:number,
-    id:number,
-    startWlIdx:number,
-    roles:Array<[string, number]>
-):TextChunk {
-
-    // there can be tokens containing `/` like `km/h`
-    // manatee also uses `/` as separator of attrs
-    // in this case there will be more items in `item.possattrs` after splitting the attr string
-    // we can not confidently assign values to its requested attributes
-    const description = ((item.posattrs || []).length + 1 > roles.length) ?
-        [
-            'concview__unparseable_token',
-            `${roles[0][0]}: ${item.str}`,
-            `${roles.slice(1).map(v => v[0]).join('/')}: ${item.posattrs.join('/')}`,
-        ] :
-        undefined;
-
-    const displayPosAttrs = List.filter(
-        // tslint:disable-next-line:no-bitwise
-        (_, i) => i+1 > roles.length-1 ? false : (roles[i+1][1] & PosAttrRole.USER) === PosAttrRole.USER,
-        item.posattrs || [],
-    );
+function importTextChunk(item:ServerTextChunk, mainAttrIdx:number, id:string, startWlIdx:number):TextChunk {
     if (mainAttrIdx === -1) {
         return {
+            id,
             className: item.class,
-            token: {
-                id,
-                s: item.str,
-                hColor: null,
-                hIsBusy: false,
-                idx: startWlIdx
-            },
+            text: List.map(
+                (s, i) => ({ s, h: false, idx: startWlIdx + i }),
+                item.str.trim().split(' ')
+            ),
             openLink: item.open_link ? {speechPath: item.open_link.speech_path} : undefined,
             closeLink: item.close_link ? {speechPath: item.close_link.speech_path} : undefined,
             continued: item.continued,
             showAudioPlayer: false,
-            posAttrs: item.posattrs || [],
-            displayPosAttrs,
-            description,
+            tailPosAttrs: item.tail_posattrs || []
         };
 
     } else {
-        const text = item.class === 'strc' ?  item.str : displayPosAttrs[mainAttrIdx];
-        displayPosAttrs.splice(mainAttrIdx, 1, item.str.trim());
+        const tailPosattrs = item.tail_posattrs || [];
+        const text = item.class === 'strc' ?  item.str : tailPosattrs[mainAttrIdx];
+        tailPosattrs.splice(mainAttrIdx, 1, item.str.trim());
         return {
+            id,
             className: item.class,
-            token: {
-                id,
-                s: text,
-                hColor: null,
-                hIsBusy: false,
-                idx: startWlIdx
-            },
+            text: [{s: text, h: false, idx: startWlIdx}],
             openLink: item.open_link ? {speechPath: item.open_link.speech_path} : undefined,
             closeLink: item.close_link ? {speechPath: item.close_link.speech_path} : undefined,
             continued: item.continued,
             showAudioPlayer: false,
-            posAttrs: item.posattrs || [],
-            displayPosAttrs,
-            description,
+            tailPosAttrs: tailPosattrs
         };
     }
 }
 
 
 function nextWithinLineIdx(tc:Array<TextChunk>, currWlIdx:number) {
-    if (List.empty(tc) || !List.last(tc).token) {
+    if (List.empty(tc) || List.empty(List.last(tc).text)) {
         return currWlIdx + 1;
     }
-    return List.last(tc).token.idx + 1;
+    return List.last(List.last(tc).text).idx + 1;
 }
 
 
 /**
  *
  */
-export function importLines(
-    data:Array<ServerLineData>,
-    mainAttrIdx:number,
-    merged_attrs:Array<[string, number]>,
-    merged_ctxattrs:Array<[string, number]>
-):Array<Line> {
-
+export function importLines(data:Array<ServerLineData>, mainAttrIdx:number):Array<Line> {
     return List.reduce<ServerLineData, Array<Line>>(
         (acc, item:ServerLineData, i:number) => {
             let line:Array<KWICSection> = [];
@@ -125,38 +84,24 @@ export function importLines(
                 (v, j) => importTextChunk(
                     v,
                     mainAttrIdx,
-                    item.toknum + j - List.size(item.Left),
-                    wlIdx,
-                    merged_ctxattrs,
+                    `C${i}:L${j}`,
+                    wlIdx
                 ),
                 item.Left
             );
             wlIdx = nextWithinLineIdx(leftText, wlIdx);
             const kwicText = List.map(
-                (v, j) => importTextChunk(
-                    v,
-                    mainAttrIdx,
-                    item.toknum + j,
-                    wlIdx,
-                    merged_attrs
-                ),
+                (v, j) => importTextChunk(v, mainAttrIdx, `C${i}:K${j}`, wlIdx),
                 item.Kwic
             );
             wlIdx = nextWithinLineIdx(kwicText, wlIdx);
             const rightText = List.map(
-                (v, j) => importTextChunk(
-                    v,
-                    mainAttrIdx,
-                    item.toknum + item.kwiclen + j,
-                    wlIdx,
-                    merged_ctxattrs
-                ),
+                (v, j) => importTextChunk(v, mainAttrIdx, `C${i}:R${j}`, wlIdx),
                 item.Right
             );
             const main_line = ConclineSectionOps.newKWICSection(
                 item.toknum,
                 item.linenum,
-                item.kwiclen,
                 item.ref,
                 leftText,
                 kwicText,
@@ -172,41 +117,22 @@ export function importLines(
                     (align_item, k) => {
                         let wlIdx = 0;
                         const leftText = List.map(
-                            (v, j) => importTextChunk(
-                                v,
-                                mainAttrIdx,
-                                align_item.toknum + j - List.size(align_item.Left),
-                                wlIdx,
-                                merged_ctxattrs
-                            ),
+                            (v, j) => importTextChunk(v, mainAttrIdx, `C${i}:A${k}:L${j}`, wlIdx),
                             align_item.Left
                         );
                         wlIdx = nextWithinLineIdx(leftText, wlIdx);
                         const kwicText = List.map(
-                            (v, j) => importTextChunk(
-                                v,
-                                mainAttrIdx,
-                                align_item.toknum + j,
-                                wlIdx,
-                                merged_attrs
-                            ),
+                            (v, j) => importTextChunk(v, mainAttrIdx, `C${i}:A${k}:K${j}`, wlIdx),
                             align_item.Kwic
                         );
                         wlIdx = nextWithinLineIdx(kwicText, wlIdx);
                         const rightText = List.map(
-                            (v, j) => importTextChunk(
-                                v,
-                                mainAttrIdx,
-                                align_item.toknum + align_item.kwiclen + j,
-                                wlIdx,
-                                merged_ctxattrs
-                            ),
+                            (v, j) => importTextChunk(v, mainAttrIdx, `C${i}:A${k}:R${j}`, wlIdx),
                             align_item.Right
                         );
                         return ConclineSectionOps.newKWICSection(
                             align_item.toknum,
                             align_item.linenum,
-                            align_item.kwiclen,
                             align_item.ref,
                             leftText,
                             kwicText,
@@ -245,7 +171,7 @@ function highlightWordInTokens(tokens:Array<Token>, mword:string, attr:string) {
         if (List.size(word) === List.size(currSrch)) {
             List.forEach(
                 item => {
-                    item.hColor = defaultBgHighlighted;
+                    item.h = true;
                     item.kcConnection = {attr, s: mword};
                 },
                 currSrch
@@ -256,7 +182,7 @@ function highlightWordInTokens(tokens:Array<Token>, mword:string, attr:string) {
     if (List.size(word) === List.size(currSrch)) {
         List.forEach(
             item => {
-                item.hColor = defaultBgHighlighted;
+                item.h = true;
                 item.kcConnection = {attr, s: mword};
             },
             currSrch
@@ -276,9 +202,9 @@ export function highlightConcLineTokens(
 ):KWICSection {
     const tokens = pipe(
         [...concLine.left, ...concLine.kwic, ...concLine.right],
-        List.map(x => x.token),
+        List.flatMap(x => x.text),
         List.map(token => {
-            token.hColor = token.kcConnection ? null : token.hColor;
+            token.h = false;
             return token;
         })
     );

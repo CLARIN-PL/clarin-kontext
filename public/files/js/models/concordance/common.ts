@@ -26,10 +26,8 @@ import { DataSaveFormat } from '../../app/navigation/save';
 
 export interface ConcToken {
     className:string;
-    token:Token;
-    posAttrs:Array<string>;
-    displayPosAttrs:Array<string>;
-    description?:Array<string>;
+    text:Array<Token>; // array => multiple words per 'pseudo-position'
+    tailPosAttrs:Array<string>; // array => multiple pos attrs per whole 'pseudo-position'
 }
 
 
@@ -43,9 +41,21 @@ export interface KWICSection {
 
     left:Array<TextChunk>;
 
+    /**
+     * This is used to obtain token number based on KWIC token number
+     * which is the only one we know from the server.
+     */
+    leftOffsets:Array<number>;
+
     kwic:Array<TextChunk>;
 
     right:Array<TextChunk>;
+
+    /**
+     * This is used to obtain token number based on KWIC token number
+     * which is the only one we know from the server.
+     */
+    rightOffsets:Array<number>;
 
     /**
      * Higlighted positions for multi layered corpora
@@ -57,8 +67,11 @@ export interface KWICSection {
 export function getKwicSectionToken(ks:KWICSection, idx:number):Token {
     return pipe(
         [...ks.left, ...ks.kwic, ...ks.right],
-        List.find(x => x.token.idx === idx),
-    ).token;
+        List.flatMap(item => item.text),
+        List.find(
+            x => x.idx === idx,
+        )
+    );
 }
 
 export interface Token {
@@ -69,11 +82,6 @@ export interface Token {
     s:string;
 
     /**
-     * Token ID as defined by Manatee indexes.
-     */
-    id:number;
-
-    /**
      * Represents indexing within a single line.
      * This means that the value goes across
      * TextChunk and even KWICSection instances
@@ -81,10 +89,9 @@ export interface Token {
     idx:number;
 
     /**
-     * Specifies whether the token is highlighed or which color the highlight is
+     * Specifies whether the token is highlighed
      */
-    hColor:string;
-    hIsBusy:boolean;
+    h:boolean;
 
     /**
      * Specifies a possible connetion with a kwic_connect result
@@ -96,21 +103,16 @@ export interface Token {
     }
 }
 
-export enum PosAttrRole {
-    USER = 0b01,
-    INTERNAL = 0b10,
-}
 
 export class TextChunk {
+    id:string;
     className:string;
-    token:Token;
+    text:Array<Token>; // array => multiple words per 'pseudo-position'
     openLink:{speechPath:string};
     closeLink:{speechPath:string};
     continued:boolean;
     showAudioPlayer:boolean;
-    posAttrs:Array<string>; // array => multiple pos attrs per whole 'pseudo-position'
-    displayPosAttrs:Array<string>;
-    description?:Array<string>;
+    tailPosAttrs:Array<string>; // array => multiple pos attrs per whole 'pseudo-position'
 }
 
 export interface Line {
@@ -205,7 +207,7 @@ export interface ServerTextChunk {
     open_link?:{speech_path:string};
     close_link?:{speech_path:string};
     continued?:boolean;
-    posattrs?:Array<string>;
+    tail_posattrs?:Array<string>;
 }
 
 export interface MLPositionsData {
@@ -380,9 +382,6 @@ export interface AjaxConcResponse extends ConcQueryResponse {
     result_shuffled:boolean;
     result_arf:number;
     sampled_size:number;
-    merged_attrs:Array<[string, number]>;
-    merged_ctxattrs:Array<[string, number]>;
-    page_title:string;
 }
 
 /**
@@ -473,7 +472,7 @@ export interface ViewConfiguration {
      * For private subcorpus this is just what user entered
      * as a subc. name. In the current corpus is published, a
      * special code is used here instead and the original
-     * name is moved to the 'subcName' attribute.
+     * name is moved to the 'origSubCorpName' attribute.
      */
     subcId:string;
 
@@ -554,13 +553,7 @@ export interface ViewConfiguration {
 
     supportsTokenConnect:boolean;
 
-    supportsTokensLinking:boolean;
-
     anonymousUserConcLoginPrompt:boolean;
-
-    mergedAttrs:Array<[string, number]>;
-
-    mergedCtxAttrs:Array<[string, number]>;
 
 }
 
@@ -636,31 +629,3 @@ export interface LineGroupChartItem {
 }
 
 export type LineGroupChartData = Array<LineGroupChartItem>;
-
-export interface HighlightRequest {
-    corpusId:string;
-    lineId:number;
-    tokenId:number;
-    tokenLength:number;
-    tokenRanges:{[corpusId:string]:[number, number]};
-    scrollY:number;
-}
-
-export interface TokenLink {
-    corpusId:string;
-    tokenId:number;
-    color:string;
-    altColors:Array<string>;
-    comment?:string;
-}
-
-export interface HighlightInfo {
-    corpusId:string;
-    lineId:number;
-    tokenId:number;
-    clickedTokenId:number;
-    color:string;
-    altColors:Array<string>;
-    isBusy:boolean;
-    comment?:string;
-}

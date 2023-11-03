@@ -19,19 +19,9 @@
  */
 
 import styled from 'styled-components';
-import { keyframes } from 'styled-components';
 import * as theme from '../../theme/default';
 
 // ----------- <ConcLines /> ----------------------
-
-const tokenBusyBlink = keyframes`
-0% {
-    background-position: 200% 0;
-}
-100% {
-    background-position: 0 0;
-}
-`;
 
 export const ConcLines = styled.table`
 
@@ -91,26 +81,18 @@ export const ConcLines = styled.table`
     td.ref a {
         text-decoration: none;
         font-size: 0.85em;
+        white-space: nowrap;
         cursor: pointer;
         color: #009EE0;
         font-weight: bold;
         max-width: 12em;
         overflow: hidden;
         text-overflow: ellipsis;
+        padding-right: 2em;
 
         .item:not(:last-child)::after {
             content: " \u2726  ";
             white-space: pre;
-        }
-
-        ${theme.mediaPhone} {
-            white-space: wrap;
-            padding-right: 1em;
-        }
-
-        ${theme.mediaNoPhone} {
-            white-space: nowrap;
-            padding-right: 2em;
         }
     }
 
@@ -165,36 +147,6 @@ export const ConcLines = styled.table`
         ${theme.textHighlight}
     }
 
-    .busy-highlight {
-        border: 1px solid #fae3f0;
-        border-radius: ${theme.borderRadiusDefault};
-        display: inline-block;
-        padding: 0 0.3em 0 0.3em;
-        background: linear-gradient(
-            90deg,
-            #ffffff 0%,
-            #ffffff 20%,
-            #fae3f0 21%,
-            #e69ec5 25%,
-            #e69ec5 35%,
-            #fae3f0 39%,
-            #ffffff 40%,
-            #ffffff 60%,
-            #fae3f0 61%,
-            #e69ec5 65%,
-            #e69ec5 75%,
-            #fae3f0 79%,
-            #ffffff 80%,
-            #ffffff 100%
-        );
-        background-size: 200% 100%;
-        background-position: 100% 0;
-        animation-name: ${tokenBusyBlink};
-        animation-duration: 1.5s;
-        animation-iteration-count: infinite;
-        animation-timing-function: linear;
-    }
-
     .concordance-col-heading {
         min-width: 280px;
         text-align: center;
@@ -229,11 +181,6 @@ export const ConcLines = styled.table`
         span.tail.attr {
             font-weight: normal;
         }
-    }
-
-    .warning {
-        height: 1em;
-        margin-right: 0.1em;
     }
 
 `;

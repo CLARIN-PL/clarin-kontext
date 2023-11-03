@@ -268,13 +268,8 @@ Note: The script also allows removing access rights.
 
 ### Apply changes
 
-To prompt KonText to acknowledge your new corpus without requiring a restart, invoke the 
-`/soft-reset` action along with the appropriate key. This key is stored in a file located 
-at `/tmp/kontext_srt/...`, with the exact filename partially disclosed in the application log.
-
-However, if only a single instance of KonText is operational, there will be just one file in 
-the `kontext_srt` directory. The filename is a constant, as it is derived from the hash of the 
-absolute path of the corresponding KonText configuration XML file.
+To force KonText to recognize your new corpus you can either send a `SIGUSR1`
+signal to a respective master process: `sudo -u www-data kill -s SIGUSR1 [proc num]`.
 
 
 ## Troubleshooting

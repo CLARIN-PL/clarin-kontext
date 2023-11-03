@@ -81,7 +81,6 @@ import tagHelperPlugin from 'plugins/taghelper/init';
 import syntaxViewerInit from 'plugins/syntaxViewer/init';
 import tokenConnectInit from 'plugins/tokenConnect/init';
 import kwicConnectInit from 'plugins/kwicConnect/init';
-import tokensLinkingInit from 'plugins/tokensLinking/init';
 import { importInitialTTData, TTInitialData } from '../models/textTypes/common';
 import { QueryType } from '../models/query/query';
 import { HitReloader } from '../models/concordance/concStatus';
@@ -502,9 +501,7 @@ export class ViewPage {
             currLposValues: fetchArgs<string>(item => item.lpos),
             currFilflVlaues: fetchArgs<'f'|'l'>(item => item.filfl),
             currFilfposValues: fetchArgs<string>(item => item.filfpos),
-            currFilfposUnitValues: fetchArgs<string>(item => item.filfpos_unit),
             currFiltposValues: fetchArgs<string>(item => item.filtpos),
-            currFiltposUnitValues: fetchArgs<string>(item => item.filtpos_unit),
             currInclkwicValues: fetchArgs<boolean>(item => item.inclkwic),
             tagsets: this.concFormsInitialArgs.filter.tagsets,
             withinArgValues: fetchArgs<boolean>(item => !!item.within),
@@ -662,9 +659,7 @@ export class ViewPage {
         this.queryModels.firstHitsModel = new FirstHitsModel(
             this.layoutModel.dispatcher,
             this.layoutModel,
-            this.concFormsInitialArgs.firsthits,
-            this.layoutModel.getConf<string>('docStruct'),
-            this.layoutModel.getConf<string>('sentenceStruct')
+            this.concFormsInitialArgs.firsthits
         );
     }
 
@@ -764,12 +759,6 @@ export class ViewPage {
                 filterFirstDocHitsFormProps: {
                     formType: Kontext.ConcFormTypes.FIRSTHITS,
                     opKey: undefined,
-                    structure: this.layoutModel.getConf<string|null>('docStruct')
-                },
-                filterFirstSentHitsFormProps: {
-                    formType: Kontext.ConcFormTypes.FIRSTHITS,
-                    opKey: undefined,
-                    structure: this.layoutModel.getConf<string|null>('sentenceStruct')
                 },
                 sortFormProps: {
                     formType: Kontext.ConcFormTypes.SORT,
@@ -995,13 +984,9 @@ export class ViewPage {
             supportsSyntaxView: this.layoutModel.pluginTypeIsActive(
                 PluginName.SYNTAX_VIEWER),
             supportsTokenConnect: tokenConnect.providesAnyTokenInfo(),
-            supportsTokensLinking: this.layoutModel.pluginTypeIsActive(
-                PluginName.TOKENS_LINKING),
             anonymousUserConcLoginPrompt: this.layoutModel.getConf<boolean>(
                 'anonymousUserConcLoginPrompt'
-            ),
-            mergedAttrs: this.layoutModel.getConf<Array<[string, number]>>('MergedAttrs'),
-            mergedCtxAttrs: this.layoutModel.getConf<Array<[string, number]>>('MergedCtxAttrs'),
+            )
         };
 
         this.viewModels = new ViewPageModels();
@@ -1113,7 +1098,7 @@ export class ViewPage {
             name,
             format,
             datasetType: DownloadType.CONCORDANCE,
-            contentType: 'text/plain',
+            contentType: 'multipart/form-data',
             url,
             args,
         }).subscribe();
@@ -1189,11 +1174,6 @@ export class ViewPage {
             this.layoutModel.registerPageLeaveVoters(
                 this.viewModels.lineSelectionModel
             );
-
-            const tokensLinking = this.layoutModel.pluginTypeIsActive(PluginName.TOKENS_LINKING) ?
-                tokensLinkingInit(
-                    this.layoutModel.pluginApi()
-                ) : null;
 
             this.renderLines(
                 {

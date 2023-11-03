@@ -767,10 +767,7 @@ export function init(
         return (
             <S.ExpandButton type="button" className={`ExpandButton${props.onClick ? '' : ' readonly'}`}
                     onClick={props.onClick ? () => props.onClick(props.isExpanded) : null}>
-                {props.isExpanded ?
-                    <ImgWithMouseover src={he.createStaticUrl('img/minus.svg')} alt="minus" /> :
-                    <ImgWithMouseover src={he.createStaticUrl('img/plus.svg')} alt="plus" />
-                }
+                {props.isExpanded ? <span>-</span> : <span>+</span>}
             </S.ExpandButton>
         );
     };
@@ -843,7 +840,7 @@ export function init(
                 return (
                     <input type="text" value={value}
                         title={he.translate('global__curr_page_num')}
-                        onKeyDown={handleKeyPress}
+                        onKeyPress={handleKeyPress}
                         onChange={e => setValue(e.target.value)}
                         disabled={props.totalPages === 1}
                         style={{width: '3em'}} />

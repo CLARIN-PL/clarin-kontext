@@ -1,9 +1,9 @@
-FROM czcorpus/kontext-manatee:2.223.6-jammy
+FROM czcorpus/kontext-manatee:2.214.1-jammy
 
 SHELL ["/bin/bash", "--login", "-c"]
 COPY . .
 RUN apt-get update \
-    && apt-get install -y sox libsox-fmt-mp3 nodejs npm python3-pip python3-icu libcairo2 \
+    && apt-get install -y curl sox libsox-fmt-mp3 nodejs npm python3-pip python3-icu libcairo2 \
     && pip3 install --upgrade pip \
     && pip3 install -r requirements.txt \
     && python3 scripts/install/steps.py SetupKontext \

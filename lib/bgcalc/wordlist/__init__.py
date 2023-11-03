@@ -18,16 +18,16 @@ import sys
 from functools import wraps
 from typing import Dict, List, Tuple
 
+import ujson
 import aiofiles
 import aiofiles.os
 import l10n
 import settings
-import ujson as json
 from action.argmapping.wordlist import WordlistFormArgs
 from bgcalc.jsonl_cache import load_cached_full, load_cached_partial
 from bgcalc.wordlist.errors import WordlistResultNotFound
 from corplib import frq_db
-from corplib.corpus import AbstractKCorpus
+from corplib.corpus import KCorpus
 from manatee import Structure  # TODO wrap this out
 
 
@@ -65,21 +65,21 @@ def cached(f):
     A decorator for caching wordlist to a CSV file
     """
     @wraps(f)
-    async def wrapper(corp: AbstractKCorpus, args: WordlistFormArgs, max_items: int):
+    async def wrapper(corp: KCorpus, args: WordlistFormArgs, max_items: int):
         path = _create_cache_path(args)
 
         if await aiofiles.os.path.exists(path):
             async with aiofiles.open(path, 'r') as fr:
                 await fr.readline()
-                return [json.loads(item) async for item in fr]
+                return [ujson.loads(item) async for item in fr]
         else:
             ans = await f(corp, args, sys.maxsize)
             ans = sorted(ans, key=lambda x: x[1], reverse=True)
             num_lines = len(ans)
             async with aiofiles.open(path, 'w') as fw:
-                await fw.write(json.dumps(dict(total=num_lines)) + '\n')
+                await fw.write(ujson.dumps(dict(total=num_lines)) + '\n')
                 for item in ans:
-                    await fw.write(json.dumps(item) + '\n')
+                    await fw.write(ujson.dumps(item) + '\n')
             return ans[:max_items]
 
     return wrapper
@@ -122,7 +122,7 @@ def _wordlist_by_pattern(attr, attrfreq, enc_pattern, excl_pattern, wlminfreq, p
     return items
 
 
-def doc_sizes(corp: AbstractKCorpus, struct: Structure, attrname: str, i: int, normvals: Dict[int, int]) -> int:
+def doc_sizes(corp: KCorpus, struct: Structure, attrname: str, i: int, normvals: Dict[int, int]) -> int:
     r = corp.filter_query(struct.attr_val(attrname.split('.')[1], i))
     cnt = 0
     while not r.end():
@@ -131,7 +131,7 @@ def doc_sizes(corp: AbstractKCorpus, struct: Structure, attrname: str, i: int, n
     return cnt
 
 
-async def _get_attrfreq(corp: AbstractKCorpus, attr, wlattr, wlnums):
+async def _get_attrfreq(corp: KCorpus, attr, wlattr, wlnums):
     if '.' in wlattr:  # attribute of a structure
         struct = corp.get_struct(wlattr.split('.')[0])
         if wlnums == 'doc sizes':
@@ -147,7 +147,7 @@ async def _get_attrfreq(corp: AbstractKCorpus, attr, wlattr, wlnums):
 
 
 @cached
-async def wordlist(corp: AbstractKCorpus, args: WordlistFormArgs, max_items: int) -> List[Tuple[str, int]]:
+async def wordlist(corp: KCorpus, args: WordlistFormArgs, max_items: int) -> List[Tuple[str, int]]:
     """
     Note: 'pfilter_words' and 'nfilter_words' are expected to contain utf-8-encoded strings.
     """

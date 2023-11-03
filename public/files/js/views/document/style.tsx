@@ -440,7 +440,6 @@ export const ValidatedItem = styled.span`
 
     .error-desc {
         position: absolute;
-        z-index: 100000,
         font-size: 80%;
         background-color: #444444;
         color: #ffb4b4;
@@ -601,7 +600,7 @@ export const UnsupportedRenderer = styled.div`
 
 // ---------------- <SimplePaginator /> --------------------------------------
 
-export const SimplePaginator = styled.div`
+export const SimplePaginator = styled.form`
 
 `;
 
@@ -677,10 +676,6 @@ export const Calendar = styled.div`
         padding: 0.1em;
         text-align: center;
     }
-
-    table td.range {
-        background-color: ${theme.colorLogoBlue};
-    }
 `;
 
 // ------------------- <CorpnameInfoTriggerLI /> --------------------
@@ -752,10 +747,7 @@ export const ConfIconA = styled.a`
 
 export const ExpandButton = styled.button`
 
-    width: 1.6rem;
-    height: 1.6rem;
     margin: 0.2em;
-    padding: 0.4em;
     display: inline-block;
     background-color: ${theme.colorButtonDefault};
     color: ${theme.colorLogoBlue};
@@ -765,18 +757,11 @@ export const ExpandButton = styled.button`
     border-radius: ${theme.inputBorderRadius};
     cursor: pointer;
 
-    img {
-        display: block;
-        width: 100%;
-        height: 100%;
-    }
-
     span {
         font-size: 1.5em;
         font-weight: bold;
         display: block;
         margin: 0 auto;
-        padding: 0;
         width: 0.7em;
         line-height: 0.7em;
         height: 0.8em;

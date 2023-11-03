@@ -110,8 +110,7 @@ class ParadigmaticQueryPage {
                         ),
                         this.layoutModel.getConf('AttrList'),
                         Kontext.structsAndAttrsToStructAttrList(this.layoutModel.getConf<Kontext.StructsAndAttrs>('structsAndAttrs')),
-                        this.layoutModel.getConf<boolean>('UseRichQueryEditor'),
-                        this.layoutModel.getConf<Kontext.PreflightConf>('concPreflight')
+                        this.layoutModel.getConf<boolean>('UseRichQueryEditor')
                     ) :
                     newModelState(
                         this.layoutModel.getCorpusIdent().id,
@@ -119,8 +118,7 @@ class ParadigmaticQueryPage {
                         this.layoutModel.getConf('AttrList'),
                         Kontext.structsAndAttrsToStructAttrList(this.layoutModel.getConf<Kontext.StructsAndAttrs>('structsAndAttrs')),
                         this.layoutModel.getConf<boolean>('UseRichQueryEditor'),
-                        this.layoutModel.getConf<string>('DefaultAttr'),
-                        this.layoutModel.getConf<Kontext.PreflightConf>('concPreflight')
+                        this.layoutModel.getConf<string>('DefaultAttr')
                     ),
                 this.layoutModel,
                 attrHelper
@@ -173,6 +171,17 @@ class ParadigmaticQueryPage {
 
             this.initCorpnameLink(formModel, helpModel);
         });
+    }
+
+    setDownloadLink(name:string, format:string, url:string, args?:any) {
+        this.layoutModel.bgDownload({
+            name,
+            format,
+            datasetType: DownloadType.PQUERY,
+            contentType: 'multipart/form-data',
+            url,
+            args,
+        }).subscribe();
     }
 }
 

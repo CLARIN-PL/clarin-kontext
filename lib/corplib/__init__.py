@@ -31,6 +31,7 @@ import plugins
 from corplib.subcorpus import SubcorpusIdent, SubcorpusRecord
 from plugin_types.corparch.corpus import (
     DefaultManateeCorpusInfo, ManateeCorpusInfo)
+from plugin_types.subc_storage import AbstractSubcArchive
 
 from .corpus import AbstractKCorpus, KCorpus
 from .errors import (
@@ -54,21 +55,14 @@ def manatee_version() -> str:
     return manatee.version()
 
 
-def manatee_is_custom_cnc() -> bool:
-    return manatee.version().endswith('-cnc')
-
-
 def manatee_min_version(ver: str) -> bool:
     """
     Tests whether the provided version string represents a newer or
-    equal version than the one currently configured. It can parse
-    also custom '-cnc' version signatures.
+    equal version than the one currently configured.
 
     arguments:
     ver -- a version signature string 'X.Y.Z' (e.g. '2.130.7')
     """
-    if ver.endswith('-cnc'):
-        ver = ver[-4]
     ver_parsed = int(''.join('%03d' % int(x) for x in ver.split('.')))
     actual = int(''.join('%03d' % int(x) for x in manatee.version().split('-')[-1].split('.')))
     return ver_parsed <= actual
@@ -335,10 +329,10 @@ async def frq_db(corp: AbstractKCorpus, attrname: str, nums: str = 'frq', id_ran
         try:
             _frq_from_file(frq, filename, id_range)  # type: ignore
         except IOError as ex:
-            raise MissingSubCorpFreqFile(ex, corp.corpname, corp.subcorpus_id)
+            raise MissingSubCorpFreqFile(ex)
         except EOFError as ex:
             await aiofiles.os.remove(corp.freq_precalc_file(attrname, 'docf'))
-            raise MissingSubCorpFreqFile(ex, corp.corpname, corp.subcorpus_id)
+            raise MissingSubCorpFreqFile(ex)
     else:
         try:
             if corp.get_conf('VIRTUAL') and not corp.subcorpus_id and nums == 'frq':
@@ -350,7 +344,7 @@ async def frq_db(corp: AbstractKCorpus, attrname: str, nums: str = 'frq', id_ran
                 await aiofiles.os.remove(filename)
             except:
                 pass
-            raise MissingSubCorpFreqFile(ex, corp.corpname, corp.subcorpus_id)
+            raise MissingSubCorpFreqFile(ex)
         except (VirtualSubcFreqFileError, IOError):
             frq = array.array('l')
             try:
@@ -360,7 +354,7 @@ async def frq_db(corp: AbstractKCorpus, attrname: str, nums: str = 'frq', id_ran
                     a = corp.get_attr(attrname)
                     frq.fromlist([a.freq(i) for i in range(a.id_range())])
                 else:
-                    raise MissingSubCorpFreqFile(ex, corp.corpname, corp.subcorpus_id)
+                    raise MissingSubCorpFreqFile(ex)
     return frq
 
 

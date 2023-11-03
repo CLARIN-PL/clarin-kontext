@@ -19,10 +19,8 @@
 
 import re
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import (
-    Any, Dict, Generator, Iterable, Iterator, List, Optional, Tuple, TypeVar,
-    Union)
+    Any, Generator, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union)
 
 SortCritType = List[Tuple[str, Union[str, int]]]
 T = TypeVar('T')
@@ -37,18 +35,6 @@ def pair(data: Union[Iterable[T], Iterator[T]]) -> Generator[Tuple[T, T], None, 
             break
 
 
-def split_chunk(pseudo_token: Tuple[str, str]):
-    """
-    Because Manatee sometimes (based on selected attributes
-    to be displayed) produces chunks like
-    ('This is a single string', '{class3}')
-    ... and we prefer items split like this:
-    ('This', '{class3}'), ('is', '{class3}'), ... etc.
-    """
-    pt, cls = pseudo_token
-    return [(t, cls) for t in re.split(r'\s+', pt)]
-
-
 def tokens2strclass(tokens):
     """
     Converts internal data structure produced by KwicLine and CorpRegion containing tokens and
@@ -60,9 +46,8 @@ def tokens2strclass(tokens):
     returns:
     a list of dicts {'str': '[token]', 'class': '[classes]'}
     """
-    pairs = [y for x in [split_chunk(p) for p in pair(tokens)] for y in x]
     return [{'str': str_token, 'class': class_token.strip('{}')}
-            for str_token, class_token in pairs]
+            for str_token, class_token in pair(tokens)]
 
 
 def lngrp_sortcrit(lab: str, separator: str = '.') -> SortCritType:
@@ -88,19 +73,6 @@ class Pagination:
                     nextPage=self.next_page, lastPage=self.last_page)
 
 
-class AttrRole(Enum):
-    USER = 0b01
-    INTERNAL = 0b10
-
-
-class MergedPosAttrs(dict):
-    def set_role(self, attr: str, role: AttrRole):
-        self[attr] = self.get(attr, 0) | role.value
-
-    def is_role(self, attr: str, role: AttrRole) -> bool:
-        return (self[attr] & role.value) == role.value
-
-
 @dataclass
 class KwicPageData:
     """
@@ -116,5 +88,3 @@ class KwicPageData:
     result_relative_freq: Optional[float] = None
     KWICCorps: List[Any] = field(default_factory=list)
     CorporaColumns: List[Any] = field(default_factory=list)
-    merged_attrs: List[Tuple[str, int]] = field(default_factory=list)
-    merged_ctxattrs: List[Tuple[str, int]] = field(default_factory=list)

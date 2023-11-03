@@ -27,7 +27,6 @@ DROP TABLE IF EXISTS parallel_corpus;
 CREATE TABLE kontext_corpus (
   id int(11) PRIMARY KEY NOT NULL AUTO_INCREMENT,
   parallel_corpus_id int(11) DEFAULT NULL,
-  pid varchar(63) DEFAULT NULL,
   name varchar(63),
   size bigint(20) NOT NULL DEFAULT '0',
   group_name varchar(255) NOT NULL,
@@ -59,8 +58,8 @@ CREATE TABLE kontext_corpus (
   description_cs text,
   description_en text,
   default_virt_keyboard varchar(255),
-  default_view_opts json DEFAULT NULL,
-  syntax_viewer_conf_json json DEFAULT NULL,
+  default_view_opts text,
+  syntax_viewer_conf_json text,
   part_of_ml_corpus int(11) NOT NULL DEFAULT '0',
   ml_position_filter enum('alphanum') DEFAULT NULL,
   UNIQUE KEY corpora_name_uniq (name),
@@ -309,7 +308,7 @@ CREATE TABLE kontext_interval_attr (
 
 CREATE TABLE kontext_conc_persistence (
   id varchar(191) NOT NULL,
-  data json NOT NULL,
+  data text NOT NULL,
   created timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   num_access int(11) NOT NULL DEFAULT '0',
   last_access timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -350,6 +349,15 @@ CREATE TABLE registry_conf (
   CONSTRAINT registry_conf_docstructure_fkey FOREIGN KEY (corpus_name, docstructure) REFERENCES corpus_structure (corpus_name, name) ON UPDATE CASCADE,
   CONSTRAINT registry_conf_ibfk_1 FOREIGN KEY (corpus_name) REFERENCES kontext_corpus (name) ON UPDATE CASCADE,
   CONSTRAINT registry_conf_wsattr_id_fkey FOREIGN KEY (corpus_name, wsattr) REFERENCES corpus_posattr (corpus_name, name)
+) ENGINE=InnoDB CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_general_ci';
+
+CREATE TABLE registry_variable (
+  corpus_name varchar(63) NOT NULL,
+  variant text,
+  maxkwic text,
+  maxdetail text,
+  maxcontext text,
+  PRIMARY KEY (corpus_name)
 ) ENGINE=InnoDB CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_general_ci';
 
 -- -------------------- susanne corpus

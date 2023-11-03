@@ -36,7 +36,7 @@ from plugin_types.corparch import (
 from plugin_types.corparch.backend import DatabaseBackend
 from plugin_types.corparch.corpus import (
     BrokenCorpusInfo, CorpusInfo, KwicConnect, MLPositionFilter, QuerySuggest,
-    StructAttrInfo, TokenConnect, TokensLinking)
+    StructAttrInfo, TokenConnect)
 from plugin_types.user_items import AbstractUserItems
 from plugins import inject
 from plugins.common.mysql import MySQLConf, MySQLOps
@@ -98,7 +98,6 @@ class MySQLCorparch(AbstractSearchableCorporaArchive):
         self._tt_desc_i18n = defaultdict(lambda: {})
         self._tc_providers = {}
         self._kc_providers = {}
-        self._tl_providers = {}
         self._qs_providers = {}
 
     @property
@@ -133,7 +132,6 @@ class MySQLCorparch(AbstractSearchableCorporaArchive):
         if row:
             ans = self.create_corpus_info()
             ans.id = row['id']
-            ans.pid = row['id'] if row['pid'] is None else row['pid']
             ans.web = row['web']
             ans.sentence_struct = row['sentence_struct']
             ans.collator_locale = row['collator_locale'] if row['collator_locale'] else 'en_US'
@@ -145,8 +143,12 @@ class MySQLCorparch(AbstractSearchableCorporaArchive):
             ans.default_tagset = row['default_tagset']
             ans._description_cs = row['description_cs']
             ans._description_en = row['description_en']
-            ans.default_view_opts = json.loads(
-                row['default_view_opts']) if row['default_view_opts'] else {}
+            try:
+                ans.default_view_opts = json.loads(
+                    row['default_view_opts']) if row['default_view_opts'] else {}
+            except Exception as ex:
+                logging.getLogger(__name__).warning(
+                    f'Failed to load default view opts for {ans.id}: {ex}')
             ans.metadata.id_attr = row['id_attr']
             ans.metadata.label_attr = row['label_attr']
             ans.metadata.featured = bool(row['featured'])
@@ -263,7 +265,6 @@ class MySQLCorparch(AbstractSearchableCorporaArchive):
         if corpus_id not in self._tc_providers and corpus_id not in self._kc_providers:
             self._tc_providers[corpus_id] = TokenConnect()
             self._kc_providers[corpus_id] = KwicConnect()
-            self._tl_providers[corpus_id] = TokensLinking()
             self._qs_providers[corpus_id] = QuerySuggest()
             data = await self._backend.load_tckc_providers(cursor, corpus_id)
             for row in data:
@@ -272,11 +273,9 @@ class MySQLCorparch(AbstractSearchableCorporaArchive):
                         (row['provider'], row['is_kwic_view']))
                 elif row['type'] == 'kc':
                     self._kc_providers[corpus_id].providers.append(row['provider'])
-                elif row['type'] == 'tl':
-                    self._tl_providers[corpus_id].providers.append(row['provider'])
                 elif row['type'] == 'qs':
                     self._qs_providers[corpus_id].providers.append(row['provider'])
-        return self._tc_providers[corpus_id], self._kc_providers[corpus_id], self._tl_providers[corpus_id], self._qs_providers[corpus_id]
+        return self._tc_providers[corpus_id], self._kc_providers[corpus_id], self._qs_providers[corpus_id]
 
     async def _fetch_corpus_info(self, cursor: Cursor, corpus_id: str, user_lang: str) -> CorpusInfo:
         if corpus_id not in self._corpus_info_cache:
@@ -302,7 +301,6 @@ class MySQLCorparch(AbstractSearchableCorporaArchive):
 
     async def on_soft_reset(self):
         self._corpus_info_cache = {}
-        logging.getLogger(__name__).warning('mysql_corparch flush corpus_info_cache (soft reset)')
 
     async def get_corpus_info(self, plugin_ctx: AbstractCorpusPluginCtx, corp_name: str) -> CorpusInfo:
         """
@@ -320,7 +318,7 @@ class MySQLCorparch(AbstractSearchableCorporaArchive):
                         else:
                             ans = corp_info
                         ans.manatee = await plugin_ctx.corpus_factory.get_info(corp_name)
-                        ans.token_connect, ans.kwic_connect, ans.tokens_linking, ans.query_suggest = await self._get_tckcqs_providers(
+                        ans.token_connect, ans.kwic_connect, ans.query_suggest = await self._get_tckcqs_providers(
                             cursor, corp_name)
                         ans.metadata.interval_attrs = await self._backend.load_interval_attrs(cursor, corp_name)
 

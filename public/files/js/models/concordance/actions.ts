@@ -20,11 +20,10 @@
 
 import { Action } from 'kombo';
 import { AudioPlayerActions, DetailExpandPositions, LineSelectionModes, LineSelValue,
-    AjaxConcResponse, LineGroupId, RefsColumn, PaginationActions, LineGroupChartData,
-    ConcViewMode, HighlightInfo } from './common';
+    AjaxConcResponse, LineGroupId, RefsColumn, PaginationActions, LineGroupChartData, ConcViewMode } from './common';
 import * as TextTypes from '../../types/textTypes';
 import { DataSaveFormat } from '../../app/navigation/save';
-import { HighlightAttrMatch } from './main';
+import { HighlightItem } from './main';
 
 
 export interface ConcGroupChangePayload {
@@ -74,7 +73,7 @@ export class Actions {
     };
 
     static PlayAudioSegment:Action<{
-        chunksIds:Array<number>;
+        chunksIds:Array<string>;
     }> = {
         name: 'CONCORDANCE_PLAY_AUDIO_SEGMENT'
     };
@@ -520,27 +519,22 @@ export class Actions {
         name: 'DASHBOARD_TOGGLE_EXTENDED_INFO'
     };
 
-    /**
-     * HighlightAttrMatch is used by kwic_connect
-     * to highlight attributes when selecting some
-     * presented word in a concordance.
-     */
-    static HighlightAttrMatch:Action<{
-        items:Array<HighlightAttrMatch>;
+    static SetHighlightItems:Action<{
+        items:Array<HighlightItem>;
         matchPosAttr:string;
     }> = {
-        name: 'CONCORDANCE_HIGHLIGHT_ATTR_MATCH'
+        name: 'CONCORDANCE_SET_HIGHLIGHT_ITEMS'
     };
 
-    static isSetHighlightAttrMatch(a:Action):a is typeof Actions.HighlightAttrMatch {
-        return a.name === Actions.HighlightAttrMatch.name;
+    static isSetHighlightItems(a:Action):a is typeof Actions.SetHighlightItems {
+        return a.name === Actions.SetHighlightItems.name;
     }
 
-    static HighlightAttrMatchDone:Action<{
-        items:Array<HighlightAttrMatch>;
+    static SetHighlightItemsDone:Action<{
+        items:Array<HighlightItem>;
         matchPosAttr:string;
     }> = {
-        name: 'CONCORDANCE_HIGHLIGHT_ATTR_MATCH_DONE'
+        name: 'CONCORDANCE_SET_HIGHLIGHT_ITEMS_DONE'
     };
 
     static HighlightedTokenMouseover:Action<{
@@ -556,21 +550,4 @@ export class Actions {
     }> = {
         name: 'CONCORDANCE_HIGHLIGHTED_TOKEN_MOUSEOUT'
     }
-
-    /**
-     * HighlightTokens is used with tokens_linking when
-     * clicking on a token and (based on backend response)
-     * highlighting one or more tokens in the same text
-     * chunk (ans possibly its aligned part in another corpus).
-     */
-    static HighlightTokens:Action<{
-        highlights:Array<HighlightInfo>;
-        scrollY:number;
-    }> = {
-        name: 'CONCORDANCE_HIGHLIGHT_TOKENS'
-    };
-
-    static DehighlightTokens:Action<{dehighlights:Array<HighlightInfo>}> = {
-        name: 'CONCORDANCE_DEHIGHLIGHT_TOKEN_BY_ID'
-    };
 }

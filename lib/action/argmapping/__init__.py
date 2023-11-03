@@ -61,9 +61,6 @@ WordlistArgsMapping = (
     'wlsort',
 )
 
-KeywordsArgsMapping = (
-)
-
 
 def comma_separated_to_js(v: str) -> List[str]:
     return v.split(',') if v else []
@@ -102,9 +99,6 @@ class GeneralOptionsArgs:
     # wordlist
     wlpagesize: int = field(default=25, metadata=mk_metdata(Persistence.PERSISTENT))
 
-    # keywords
-    kwpagesize: int = field(default=25, metadata=mk_metdata(Persistence.PERSISTENT))
-
     # frequency
     fmaxitems: int = field(default=50, metadata=mk_metdata())
     fdefault_view: str = field(default='tables', metadata=mk_metdata(Persistence.PERSISTENT))
@@ -115,7 +109,7 @@ class GeneralOptionsArgs:
     # collocations
     citemsperpage: int = field(default=50, metadata=mk_metdata(Persistence.PERSISTENT))
 
-    # subcpage
+    # wordlist
     subcpagesize: int = field(default=40, metadata=mk_metdata(Persistence.PERSISTENT))
 
     def map_args_to_attrs(self, args: Union[RequestArgsProxy, JSONRequestArgsProxy, Dict[str, Any]]):
@@ -270,10 +264,8 @@ class Args(UserActionArgs):
     ctminfreq: int = field(default=80, metadata=mk_metdata())
     ctminfreq_type: str = field(
         default='pabs', metadata=mk_metdata())  # percentile as a default filter mode
-    # freq. crit. for the 1st dim. in 2D freq. dist.
-    ctfcrit1: str = field(default='word 0<0', metadata=mk_metdata())
-    # freq. crit. for the 2nd dim. in 2D freq. dist.
-    ctfcrit2: str = field(default='word 0<0', metadata=mk_metdata())
+    ctfcrit1: str = field(default='word 0<0', metadata=mk_metdata())  # freq. crit. for the 1st dim. in 2D freq. dist.
+    ctfcrit2: str = field(default='word 0<0', metadata=mk_metdata())  # freq. crit. for the 2nd dim. in 2D freq. dist.
 
     maxsavelines: int = field(default=1000, metadata=mk_metdata())
     fcrit: List[str] = field(default_factory=list, metadata=mk_metdata())
@@ -305,23 +297,10 @@ class Args(UserActionArgs):
                 return 'visible-kwic'
         return value
 
-    @staticmethod
-    def _is_options_only_arg(name: str) -> bool:
-        """
-        Tests whether the provided argument should be treated as one activated only
-        via stored user options - i.e. having the value in URL (or some submitted form)
-        should not change its value.
-        """
-        return name in ('shuffle', )
-
-    @staticmethod
-    def _is_request_map_source(data: Union[RequestArgsProxy, JSONRequestArgsProxy, Dict[str, Any]]):
-        return isinstance(data, RequestArgsProxy) or isinstance(data, JSONRequestArgsProxy)
-
     def map_args_to_attrs(self, args: Union[RequestArgsProxy, JSONRequestArgsProxy, Dict[str, Any]]):
         """
         Set existing attrs of self to the values provided by args. Multi-value keys are supported
-        in a limited way - only a list of strings can be set.
+        in a limited way - only list of strings can be set.
 
         arguments:
         req_args -- a RequestArgsProxy instance or a general dict containing parameters
@@ -330,7 +309,7 @@ class Args(UserActionArgs):
         for key in in_args.keys():
             values = in_args.getlist(key)
             if len(values) > 0:
-                if hasattr(self, key) and not (self._is_options_only_arg(key) and self._is_request_map_source(args)):
+                if hasattr(self, key):
                     try:
                         if isinstance(getattr(self, key), (list, tuple)):
                             setattr(self, key, values)

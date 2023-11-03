@@ -403,18 +403,6 @@
                             <ref name="boolValues" />
                         </element>
                     </optional>
-                    <optional>
-                        <element name="csp_domains">
-                            <a:documentation>
-                                Whitelisted resources domains
-                            </a:documentation>
-                            <oneOrMore>
-                                <element name="domain">
-                                    <data type="anyURI" />
-                                </element>
-                            </oneOrMore>
-                        </element>
-                    </optional>
                 </interleave>
             </element>
             <element name="calc_backend">
@@ -653,12 +641,33 @@
             </element>
             <element name="fcs">
                 <interleave>
-                    <element name="database_title">
-                        <text />
-                    </element>
-                    <element name="database_description">
-                        <text />
-                    </element>
+                    <optional>
+                        <element name="provider_heading">
+                            <text />
+                        </element>
+                    </optional>
+                    <optional>
+                        <element name="provider_website">
+                            <text />
+                        </element>
+                    </optional>
+                    <optional>
+                        <element name="template_css_url">
+                            <choice>
+                                <text />
+                                <oneOrMore>
+                                    <element name="item">
+                                        <text />
+                                    </element>
+                                </oneOrMore>
+                            </choice>
+                        </element>
+                    </optional>
+                    <optional>
+                        <element name="template_header_inject_file">
+                            <text />
+                        </element>
+                    </optional>
                     <optional>
                         <element name="search_attributes">
                             <oneOrMore>
@@ -675,17 +684,10 @@
                     <optional>
                         <element name="kwic_context">
                             <a:documentation>KWIC context for left and right size. Please note that registry file
-                            defined MAXCONTEXT limits max value of kwic_context.</a:documentation>
+                            defined MAXCONTEXT has priority over this.</a:documentation>
                             <data type="positiveInteger" />
                         </element>
                     </optional>
-                    <element name="corpora">
-                        <oneOrMore>
-                            <element name="item">
-                                <text />
-                            </element>
-                        </oneOrMore>
-                    </element>
                 </interleave>
             </element>
             <element name="plugins">
@@ -870,12 +872,6 @@
                         </optional>
                     </element>
                     <element name="kwic_connect">
-                        <optional>
-                            <ref name="plugin_common" />
-                            <ref name="customPluginConfiguration" />
-                        </optional>
-                    </element>
-                    <element name="tokens_linking">
                         <optional>
                             <ref name="plugin_common" />
                             <ref name="customPluginConfiguration" />

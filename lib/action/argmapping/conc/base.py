@@ -13,21 +13,8 @@
 # GNU General Public License for more details.
 
 from typing import Any, Dict, Generic, Optional, TypeVar
-import abc
 
-
-class AbstractRawQueryDecoder:
-
-    @abc.abstractmethod
-    def from_raw_query(self, q: str, corpname: str) -> 'AbstractRawQueryDecoder':
-        """
-        Decode raw Manatee operation (including first character
-        representing an operation identifier).
-        """
-        pass
-
-
-T = TypeVar('T', bound=AbstractRawQueryDecoder)
+T = TypeVar('T')
 
 
 class ConcFormArgs(Generic[T]):
@@ -59,18 +46,6 @@ class ConcFormArgs(Generic[T]):
             if hasattr(self.data, k):
                 setattr(self.data, k, v)
         self._op_key = op_key
-        return self
-
-    def from_raw_query(self, q: str, corpname: str) -> 'ConcFormArgs[T]':
-        """
-        Return an updated self object (the same instance) with data imported
-        from a "raw Manatee query" (e.g. stuff like 'sword/ 0 word/ir -1<0 tag/r -2<0'
-        (sorting) or 'p-1 -1 -1 [word="drug"]' (filter)).
-
-        This is mostly used along with URL actions create_view, create_lazy_view
-        which allows building multistep queries directly using a single request.
-        """
-        self.data = self.data.from_raw_query(q, corpname)
         return self
 
     def to_dict(self) -> Dict[str, Any]:

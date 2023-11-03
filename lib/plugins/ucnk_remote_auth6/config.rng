@@ -14,7 +14,7 @@
                     client-side implementations.
                 </a:documentation>
                 <choice>
-                    <value>auth</value>
+                    <value>defaultAuth</value>
                 </choice>
             </element>
             <element name="anonymous_user_id">

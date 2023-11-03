@@ -23,7 +23,6 @@ KonText is an **advanced corpus query interface** and corpus data **integration 
     * concordance,
     * paradigmatic query,
     * word list
-    * keywords analysis
 * simple and advanced query types
     * **advanced CQL editor** with **syntax highlighting** and **attribute recognition**
     * **interactive PoS tag composing tool** for positional and key-value tagsets
@@ -37,13 +36,9 @@ KonText is an **advanced corpus query interface** and corpus data **integration 
     * **user-defined line groups** - filtering, reviewing groups ratios
     * tokens and KWICs can be connected to external data services (e.g. dictionaries, encyclopedias)
 * **rich subcorpus-related functionality**
-    * any subcorpus is accesible by other users (in case they obtain a URL, otherwise the subcorpus is not discoverable by default)
-      * once a public description is set, the subcorpus can be discovered on the "public subcorpora" page
+    * a subcorpus can be either private or published
     * text types metadata can be gradually refined to a specific subcorpus ("which publishers are there in case only *fiction* is selected?")
     * a **custom text types ratio** can be defined ("give me 20% fiction and 80% journalism")
-    * unused subcorpora can be archived (URLs with the subcorpus are still valid) or completely removed (URLs will become invalid)
-    * searching within a subcorpous can be further refined with ad-hoc text type selection
-    * a subcorpus can be created with respect to corpora aligned ("give me fiction in Czech but only if there is an English translation for it")
 * **frequency distribution**
     * univariate
         * positional attributes (including tuples of multiple attributes per token)
@@ -55,24 +50,24 @@ KonText is an **advanced corpus query interface** and corpus data **integration 
 * convenient corpus access
     * finding corpus by a keyword (tag), size, description
     * adding corpus to **favorites** (incl. subcorpora, aligned corpora)
-* saving result to Excel, CSV, XML, JSONL, TXT
+* saving result to Excel, CSV, XML, TXT
 * [HTTP API](https://github.com/czcorpus/kontext/wiki/HTTP-API) access
+* integrability with existing information systems
 
 
 ## Internal features
 
 * modern client-side application (written in TypeScript, event stream architecture, React components, extensible)
-* server-side written using the [Sanic](https://sanic.dev/en/) framework with fully **decoupled background concordance/frequency/collocation calculation** (using an integrated [Rq](https://python-rq.org/) worker server)
+* server-side written using the [Sanic](https://sanic.dev/en/) framework with fully **decoupled background concordance/frequency/collocation calculation** (using an integrated Rq/Celery worker server)
 * modular code design with dynamically loadable plug-ins providing custom functionality implementation (e.g. custom database
 adapters, authentication method, corpus listing widgets, HTTP session management)
-   * integrability with existing information systems
 
 
 ## Installation
 
 ### Docker
 
-Running KonText as a set of Docker containers is the most convenient and flexible way. To run a basic
+Running KonText as a set of Docker containers is the most convenient and flexible way. To run a basic 
 configuration instance (i.e. no MySQL/MariaDB server, no WebSocket server) use:
 
 ```shell
@@ -96,14 +91,14 @@ docker-compose -f docker-compose.yml -f docker-compose.mysql.yml --env-file .env
 * [Manatee](http://nlp.fi.muni.cz/trac/noske) corpus search engine - version *2.167.8* and onwards (for KonText *v0.17*, Manatee *v2.2xx* is recommended)
 * a key-value storage
     * [Redis](http://redis.io/) (recommended), [SQLite](https://sqlite.org/) (supported), custom implementations possible
-* a task queue - [Rq](https://python-rq.org/)
+* a task queue - [Rq](https://python-rq.org/) (recommended), [Celery task queue](http://www.celeryproject.org/) (supported)
 * HTTP proxy server
   + [Nginx](http://nginx.org/) (recommended), [Apache](http://httpd.apache.org/),...
 
 
-For Ubuntu OS users, it is recommended to use the [install script](scripts/install/install.py) which should
+For Ubuntu OS users, it is recommended to use the [install script](scripts/install/install.py) which should 
 perform most of the actions necessary to install and run KonText. For other Linux distributions we recommend
-running KonText within a container or a virtual machine. Please refer to the [doc/INSTALL.md](doc/INSTALL.md)
+running KonText within a container or a virtual machine. Please refer to the [doc/INSTALL.md](doc/INSTALL.md) 
 file for details.
 
 

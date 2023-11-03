@@ -1,28 +1,47 @@
 version: '3.7'
 
+volumes:
+  mariadb:
+    driver: local
+
+networks:
+  db:
+    driver: bridge
+
 services:
   mariadb:
+    container_name: kontext_mariadb_1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile.mariadb
+    restart: always
     environment:
       - MYSQL_PASSWORD
       - MYSQL_USER
       - MYSQL_ROOT_PASSWORD
-    volumes:
-      - mdbdata:/var/lib/mysql
+    expose:
+      - "3306"
     ports:
       - "3306:3306"
+    volumes:
+      - mariadb:/var/lib/mysql
     networks:
-      - databases
+      - db
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "--password=$MYSQL_ROOT_PASSWORD"]
       interval: 1s
       timeout: 10s
       retries: 5
 
-volumes:
-  mdbdata: {}
-
-networks:
-  databases: {}
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    expose:
+      - "40001"
+    ports:
+      - "40001:80"
+    environment:
+      - PMA_HOST=mariadb
+      - PMA_PORT=3306
+    networks:
+      - db

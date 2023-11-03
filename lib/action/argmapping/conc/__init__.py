@@ -12,16 +12,15 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from action.argmapping.conc.base import ConcFormArgs
 from action.plugin.ctx import PluginCtx
-from sanic.request import RequestParameters
 
-from .filter import (
-    FilterFormArgs, FirstHitsFilterFormArgs, SubHitsFilterFormArgs)
-from .other import (
-    KwicSwitchArgs, LgroupOpArgs, LockedOpFormsArgs, SampleFormArgs, ShuffleFormArgs)
+from .filter import (FilterFormArgs, FirstHitsFilterFormArgs,
+                     SubHitsFilterFormArgs)
+from .other import (KwicSwitchArgs, LgroupOpArgs, LockedOpFormsArgs,
+                    SampleFormArgs, ShuffleFormArgs)
 from .query import QueryFormArgs
 from .sort import SortFormArgs
 
@@ -52,49 +51,6 @@ async def build_conc_form_args(plugin_ctx: PluginCtx, corpora: List[str], data: 
     elif tp == 'subhits':
         return SubHitsFilterFormArgs(persist=False).updated(data, op_key)
     elif tp == 'firsthits':
-        struct = data['doc_struct'] if 'doc_struct' in data else data['struct'] # doc_struct is a legacy key
-        return FirstHitsFilterFormArgs(persist=False, struct=struct).updated(data, op_key)
+        return FirstHitsFilterFormArgs(persist=False, doc_struct=data['doc_struct']).updated(data, op_key)
     else:
-        raise ValueError(f'cannot determine stored conc args class from type {tp}')
-
-
-async def decode_raw_query(
-        plugin_ctx: PluginCtx,
-        corpora: List[str],
-        args: RequestParameters
-) -> List[Tuple[str, ConcFormArgs]]:
-    """
-    Based on raw Manatee query parameters stored in 'args', create respective KonText forms.
-
-    Returns pairs (raw_query, query form)
-    """
-    ans = []
-    for raw_op in args.getlist('q'):
-        op = raw_op[0]
-        if op in ('q', 'a'):
-            ans.append((
-                raw_op,
-                (await QueryFormArgs.create(plugin_ctx=plugin_ctx, corpora=corpora, persist=True)
-                 ).from_raw_query(raw_op, corpora[0])))
-        elif op == 'r':
-            ans.append((raw_op, SampleFormArgs(persist=True).from_raw_query(raw_op, corpora[0])))
-        elif op == 's':
-            ans.append((raw_op, SortFormArgs(persist=True).from_raw_query(raw_op, corpora[0])))
-        elif op == 'f':
-            ans.append((raw_op, ShuffleFormArgs(persist=True).from_raw_query(raw_op, corpora[0])))
-        elif op == 'D':
-            ans.append((raw_op, SubHitsFilterFormArgs(persist=True).from_raw_query(raw_op, corpora[0])))
-        elif op == 'F':
-            ans.append(
-                (raw_op, FirstHitsFilterFormArgs(persist=True, struct='').from_raw_query(raw_op, corpora[0])))
-        elif op in ('n', 'N', 'p', 'P'):
-            ans.append((
-                raw_op,
-                (await FilterFormArgs.create(plugin_ctx=plugin_ctx, maincorp=raw_op, persist=True)
-                ).from_raw_query(raw_op, corpora[0])))
-        elif op == 'x':
-            ans.append((
-                raw_op, KwicSwitchArgs(maincorp=raw_op, persist=True).from_raw_query(raw_op, corpora[0])))
-        else:
-            raise ValueError(f'failed to determine form for the encoded operation "{op}"')
-    return ans
+        raise ValueError(f'Cannot determine stored conc args class from type {tp}')

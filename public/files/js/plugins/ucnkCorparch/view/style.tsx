@@ -19,7 +19,7 @@
  */
 
 import styled from 'styled-components';
-export * from '../../corparch/corplistView/style';
+export * from '../../defaultCorparch/corplistView/style';
 
 // -------------- <RequestForm /> ------------------------------
 

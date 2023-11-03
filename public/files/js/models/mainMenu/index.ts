@@ -27,6 +27,7 @@ import { Actions } from './actions';
 import { Actions as ConcActions } from '../concordance/actions';
 import { Actions as GeneralOptsActions } from '../options/actions';
 import { Actions as GlobalActions } from '../common/actions';
+import { Actions as QueryActions } from '../query/actions';
 import { Actions as FreqActions } from '../freqs/regular/actions';
 import { ConcServerArgs } from '../concordance/common';
 import { FreqResultViews } from '../freqs/common';
@@ -252,13 +253,12 @@ export class MainMenuModel extends StatelessModel<MainMenuModelState> {
         );
 
         this.addActionHandler(
-            [
-                Actions.ClearActiveItem,
-                ConcActions.AddedNewOperation
-            ],
+            Actions.ClearActiveItem,
             (state, action) => {
                 state.activeItem = null;
             }
+        ).reduceAlsoOn(
+            ConcActions.AddedNewOperation.name
         );
 
         this.addActionHandler(
@@ -276,8 +276,7 @@ export class MainMenuModel extends StatelessModel<MainMenuModelState> {
             Actions.MakeConcLinkPersistent.name,
             Actions.UndoLastQueryOp.name,
             Actions.FilterApplySubhitsRemove.name,
-            Actions.FilterApplyFirstOccurrencesInDocs.name,
-            Actions.FilterApplyFirstOccurrencesInSentences.name,
+            Actions.FilterApplyFirstOccurrences.name,
             Actions.ShowFreqForm.name,
             Actions.ShowCollForm.name,
             ConcActions.SwitchKwicSentMode.name,
@@ -326,13 +325,6 @@ export class MainMenuModel extends StatelessModel<MainMenuModelState> {
             GlobalActions.ConcArgsUpdated,
             (state, action) => {
                 state.concArgs = action.payload.args
-            }
-        );
-
-        this.addActionHandler(
-            ConcActions.ReloadConc,
-            (state, action) => {
-                state.concArgs = {...state.concArgs, q: [`~${action.payload.concId}`]}
             }
         );
 

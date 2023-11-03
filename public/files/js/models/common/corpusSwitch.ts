@@ -68,6 +68,7 @@ export interface CorpusSwitchResponse extends AjaxConcResponse {
     TextDirectionRTL:boolean;
     // here it is impossible to determine a detailed type in a reasonable way
     pluginData:{[plgName:string]:any};
+    DefaultVirtKeyboard:string;
     SimpleQueryDefaultAttrs:Array<string>;
     QSEnabled:boolean;
     ShuffleConcByDefault:number;
@@ -189,6 +190,7 @@ export class CorpusSwitchModel extends StatefulModel<CorpusSwitchModelState> {
                             this.conf.setConf<string>('TextTypesNotes', data.TextTypesNotes);
                             this.conf.setConf<boolean>('TextDirectionRTL', data.TextDirectionRTL);
                             this.conf.setConf<{[plgName:string]:any}>('pluginData', data.pluginData);
+                            this.conf.setConf<string>('DefaultVirtKeyboard', data.DefaultVirtKeyboard);
                             this.conf.setConf<Array<string>>('SimpleQueryDefaultAttrs', data.SimpleQueryDefaultAttrs);
                             this.conf.setConf<boolean>('QSEnabled', data.QSEnabled);
                             this.conf.setConf<number>('ShuffleConcByDefault', data.ShuffleConcByDefault);
@@ -220,8 +222,7 @@ export class CorpusSwitchModel extends StatefulModel<CorpusSwitchModelState> {
                             payload: {
                                 data: storedStates,
                                 corpora: List.zipAll(action.payload.corpora, prevCorpora),
-                                newPrimaryCorpus: action.payload.newPrimaryCorpus,
-                                widgetId: action.payload.widgetId,
+                                newPrimaryCorpus: action.payload.newPrimaryCorpus
                             }
                         });
                     },

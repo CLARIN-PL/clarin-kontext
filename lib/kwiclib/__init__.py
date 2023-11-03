@@ -28,8 +28,8 @@ from conclib.common import KConc
 from conclib.empty import InitialConc
 from corplib.corpus import AbstractKCorpus
 from kwiclib.common import (
-    AttrRole, KwicPageData, MergedPosAttrs, Pagination, SortCritType,
-    lngrp_sortcrit, pair, tokens2strclass)
+    KwicPageData, Pagination, SortCritType, lngrp_sortcrit, pair,
+    tokens2strclass)
 from kwiclib.mlfilter import ml_filter_test
 from plugin_types.corparch.corpus import MLPositionFilter
 
@@ -145,13 +145,6 @@ class KwicPageArgs:
     # multilayer align corpora
     ml_position_filters: Dict[str, MLPositionFilter] = field(default_factory=dict)
 
-    # needed positional attributes but not to be displayed
-    internal_attrs: List[str] = field(default_factory=list)
-
-    # merged attrs with roles
-    merged_attrs: MergedPosAttrs = field(default_factory=MergedPosAttrs)
-    merged_ctxattrs: MergedPosAttrs = field(default_factory=MergedPosAttrs)
-
     def __post_init__(self, argmapping: Dict[str, Any]):
         for k, v in argmapping.items():
             if hasattr(self, k):
@@ -179,22 +172,14 @@ class KwicPageArgs:
         return self.fromp * self.pagesize + self.line_offset
 
     def create_kwicline_args(self, **kw) -> KwicLinesArgs:
-        for attr in self.attrs.split(','):
-            self.merged_attrs.set_role(attr, AttrRole.USER)
-        for ctxattr in self.ctxattrs.split(','):
-            self.merged_ctxattrs.set_role(ctxattr, AttrRole.USER)
-        for attr in self.internal_attrs:
-            self.merged_attrs.set_role(attr, AttrRole.INTERNAL)
-            self.merged_ctxattrs.set_role(attr, AttrRole.INTERNAL)
-
         ans = KwicLinesArgs()
         ans.speech_segment = self.speech_attr
         ans.fromline = self.calc_fromline()
         ans.toline = self.calc_toline()
         ans.leftctx = self.leftctx
         ans.rightctx = self.rightctx
-        ans.attrs = ','.join(self.merged_attrs)
-        ans.ctxattrs = ','.join(self.merged_ctxattrs)
+        ans.attrs = self.attrs
+        ans.ctxattrs = self.ctxattrs
         ans.refs = self.refs
         ans.structs = self.structs
         ans.labelmap = self.labelmap
@@ -210,10 +195,16 @@ class KwicPageArgs:
 class Kwic:
     """
     KWIC related data preparation utilities
+
+    arguments:
+    corpus --
+    corpus_fullname -- full (internal) name of the corpus (e.g. with path prefix if used)
+    conc -- a manatee.Concordance instance
     """
 
-    def __init__(self, corpus: AbstractKCorpus, conc: KConc):
+    def __init__(self, corpus: AbstractKCorpus, corpus_fullname: str, conc: KConc):
         self.corpus = corpus
+        self.corpus_fullname = corpus_fullname
         self.conc = conc
 
     def kwicpage(self, args: KwicPageArgs) -> KwicPageData:
@@ -239,6 +230,7 @@ class Kwic:
         pagination.first_page = 1
         out.Lines = self.kwiclines(args.create_kwicline_args(), self.corpus.corpname)
         self.add_aligns(out, args.create_kwicline_args(speech_segment=None))
+
         if len(out.CorporaColumns) == 0:
             out.CorporaColumns = [dict(n=self.corpus.corpname, label=self.corpus.get_conf('NAME'))]
             out.KWICCorps = [self.corpus.corpname]
@@ -275,8 +267,6 @@ class Kwic:
                 for item in line[part]:
                     item['str'] = item['str'].replace('===NONE===', '')
         out.pagination = pagination.export()
-        out.merged_attrs = list(args.merged_attrs.items())
-        out.merged_ctxattrs = list(args.merged_ctxattrs.items())
         return out
 
     def add_aligns(self, result: KwicPageData, args: KwicLinesArgs):
@@ -479,7 +469,7 @@ class Kwic:
             if item.get('class') == 'attr':
                 # TODO configurable delimiter
                 # a list is used for future compatibility
-                prev['posattrs'] = item['str'].strip('/').split('/')
+                prev['tail_posattrs'] = item['str'].strip('/').split('/')
             else:
                 ans.append(item)
             prev = item
@@ -497,6 +487,7 @@ class Kwic:
         returns:
         a dictionary containing all the required line data (left context, kwic, right context,...)
         """
+
         # add structures needed to render speech playback information
         all_structs = args.structs
         if self.speech_segment_has_audio(args.speech_segment):
@@ -507,13 +498,16 @@ class Kwic:
         else:
             speech_struct_attr_name = ''
             speech_struct_attr = None
+
         lines = []
+
         if args.righttoleft:
             rightlabel, leftlabel = 'Left', 'Right'
             args.structs += ',ltr'
             # from unicodedata import bidirectional
         else:
             leftlabel, rightlabel = 'Left', 'Right'
+
         # self.conc.corp() must be used here instead of self.corpus
         # because in case of parallel corpora these two are different and only the latter one is correct
         if isinstance(self.conc, InitialConc):

@@ -109,12 +109,6 @@ export class Actions {
         name: 'QUERY_INPUT_SET_VIRTUAL_KEYBOARD_LAYOUT'
     };
 
-    static QueryInputSetVirtualKeyboardLayoutFromCode: Action<{
-        code:string;
-    }> = {
-        name: 'QUERY_INPUT_SET_VIRTUAL_KEYBOARD_LAYOUT_FROM_CODE'
-    };
-
     static QueryInputToggleVirtualKeyboardShift: Action<{
     }> = {
         name: 'QUERY_INPUT_TOGGLE_VIRTUAL_KEYBOARD_SHIFT'
@@ -140,6 +134,13 @@ export class Actions {
     }> = {
         name: 'QUERY_INPUT_HIT_VIRTUAL_KEYBOARD_DEAD_KEY'
     };
+
+    static QueryInputSetVirtualKeyboardLayoutFromCode: Action<{
+        code:string;
+
+    }> = {
+        name: 'QUERY_INPUT_SET_VIRTUAL_KEYBOARD_LAYOUT_FROM_CODE'
+    }
 
     static QueryContextSetLemwordWsize: Action<{
         value:[number, number];
@@ -404,12 +405,6 @@ export class Actions {
         name: 'QUERY_INPUT_SET_INCLUDE_EMPTY'
     };
 
-    static SetShuffle:Action<{
-        value:boolean;
-    }> = {
-        name: 'QUERY_INPUT_SET_SHUFFLE'
-    };
-
     static QuerySubmit: Action<{
         noQueryHistory?:boolean;
         useAltCorp?:boolean;
@@ -662,6 +657,12 @@ export class Actions {
     static QueryHideQuickSubcorpWidget:Action<{
     }> = {
         name: 'QUERY_HIDE_QUICK_SUBCORP_WIDGET'
+    };
+
+    static QueryAddSubcorp: Action<
+        Kontext.SubcorpListItem
+    > = {
+        name: 'QUERY_ADD_SUBCORP'
     };
 }
 

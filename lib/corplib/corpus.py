@@ -25,9 +25,10 @@ from corplib.abstract import AbstractKCorpus
 from corplib.subcorpus import SubcorpusIdent
 from manatee import Corpus
 
+
 PREFLIGHT_THRESHOLD_FREQ = 10_000_000
 """
-Specifies a minimum preflight frequency  we consider
+Specifies a minimum preflight frequency  we consider 
 too computationally demanding which leads to a message
 asking user to consider a smaller alternative corpus.
 """
@@ -94,13 +95,7 @@ class KCorpus(AbstractKCorpus):
         """
         Get corpus configuration entry from its configuration registry file
         """
-        v = self._corp.get_conf(key)
-        if key == 'DOCSTRUCTURE' and v == 'doc' and v not in self.get_structs():
-            # Manatee returns 'doc' in case DOCSTRING is not defined.
-            # But such a value is useless in case the structure 'doc'
-            # does not exist.
-            return ''
-        return v
+        return self._corp.get_conf(key)
 
     def get_confpath(self):
         return self._corp.get_confpath()
@@ -189,3 +184,4 @@ class KCorpus(AbstractKCorpus):
     def get_structs(self) -> List[str]:
         items = self._corp.get_conf('STRUCTLIST')
         return items.split(',') if items else []
+

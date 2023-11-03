@@ -31,7 +31,7 @@ class Token(object):
         self._value = value
 
 
-class Tokenizer:
+class Tokenizer(object):
 
     def __init__(self, infile: AsyncTextIOWrapper):
         self._fr = infile
@@ -58,7 +58,7 @@ class Tokenizer:
                     if type(line_ans[-1]) is list and line_ans[-1][0] == '"' and v == '"':
                         line_ans[-1].append(' ')
                     else:
-                        line_ans[-1].append(v)
+                        line_ans[-1] += v
                 else:
                     if is_q:
                         line_ans[-1].append(item)

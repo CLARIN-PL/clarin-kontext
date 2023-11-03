@@ -21,7 +21,7 @@ GlobPart =
 
 GlobCond =
     NUMBER DOT AttName _ NOT? EQ _ NUMBER DOT AttName
-    / KW_FREQ LPAREN _ NUMBER DOT AttName _ RPAREN NOT? _ ( EQ / LEQ / GEQ / LSTRUCT / RSTRUCT ) _ NUMBER
+    / KW_FREQ LPAREN NUMBER DOT AttName RPAREN NOT? _ ( EQ / LEQ / GEQ / LSTRUCT / RSTRUCT ) _ NUMBER
 
 WithinContainingPart =
     Sequence
@@ -78,7 +78,7 @@ CloseStructTag =
 
 AtomQuery =
     Position
-    / LPAREN _ Sequence (_ NOT? (KW_WITHIN / KW_CONTAINING) _ WithinContainingPart)* _ RPAREN
+    / LPAREN Sequence (_ NOT? (KW_WITHIN / KW_CONTAINING) _ WithinContainingPart)* RPAREN
 
 AlignedPart =
     AttName COLON _ Sequence  // parallel alignment
@@ -95,10 +95,10 @@ AttVal =
     / POSNUM NUMBER DASH NUMBER
     / POSNUM NUMBER
     / NOT AttVal
-    / LPAREN _ AttValList _ RPAREN
-    / (KW_WS / KW_TERM) LPAREN _ (NUMBER COMMA NUMBER / RegExp COMMA RegExp COMMA RegExp) _ RPAREN
-    / KW_SWAP LPAREN _ NUMBER COMMA AttValList _ RPAREN
-    / KW_CCOLL LPAREN _ NUMBER COMMA NUMBER COMMA AttValList _ RPAREN
+    / LPAREN AttValList RPAREN
+    / (KW_WS / KW_TERM) LPAREN (NUMBER COMMA NUMBER / RegExp COMMA RegExp COMMA RegExp) RPAREN
+    / KW_SWAP LPAREN NUMBER COMMA AttValList RPAREN
+    / KW_CCOLL LPAREN NUMBER COMMA NUMBER COMMA AttValList RPAREN
 
 WithinNumber =
     NUMBER
@@ -137,14 +137,14 @@ RegExpRaw =
     (RgLook / RgGrouped / RgSimple)+
 
 RgGrouped =
-    LPAREN _ RegExpRaw _ RPAREN
+    LPAREN RegExpRaw RPAREN
 
 RgSimple =
     (RgRange / RgChar / RgAlt)+
 
 // negative/positive lookbehind/lookahead
 RgLook =
-    LPAREN _ RgLookOperator RegExpRaw _ RPAREN
+    LPAREN RgLookOperator RegExpRaw RPAREN
 
 RgLookOperator =
     QUEST LSTRUCT NOT / QUEST LSTRUCT EQ / QUEST NOT / QUEST EQ

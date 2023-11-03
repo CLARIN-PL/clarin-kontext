@@ -32,6 +32,28 @@ from typing import List, Tuple
 
 WEBSERVER_USER = "www-data"
 
+CELERY_CONFIG = """
+<calc_backend>
+    <type>celery</type>
+    <task_time_limit>300</task_time_limit>
+    <celery_broker_url>redis://127.0.0.1:6379/2</celery_broker_url>
+    <celery_result_backend>redis://127.0.0.1:6379/2</celery_result_backend>
+    <celery_task_serializer>json</celery_task_serializer>
+    <celery_result_serializer>json</celery_result_serializer>
+    <celery_accept_content>
+        <item>json</item>
+    </celery_accept_content>
+    <celery_timezone>Europe/Prague</celery_timezone>
+</calc_backend>
+"""
+
+CELERY_SCHEDULER_CONFIG = """
+<job_scheduler>
+    <type>celery</type>
+    <conf>/opt/kontext/conf/beatconfig.py</conf>
+</job_scheduler>
+"""
+
 
 def create_directory(path: str, user: str = None, group: str = None, mode: int = 0o755):
     p = pathlib.Path(path)
@@ -116,24 +138,41 @@ class SetupBgCalc(InstallationStep):
     def abort(self):
         pass
 
-    def run(self):
+    def run(self, celery_worker):
         try:
             subprocess.check_call(['useradd', '-r', '-s', '/bin/false',
                                    'bg-calc'], stdout=self.stdout)
         except:
             pass
 
-        subprocess.check_call(['cp', os.path.join(
-            self.kontext_path, 'scripts/install/conf/rq-all.target'), '/etc/systemd/system'], stdout=self.stdout)
-        subprocess.check_call(['cp', os.path.join(
-            self.kontext_path, 'scripts/install/conf/rq@.service'), '/etc/systemd/system'], stdout=self.stdout)
-        replace_string_in_file('/etc/systemd/system/rq@.service',
-                               '/opt/kontext', self.kontext_path)
-        subprocess.check_call(['cp', os.path.join(
-            self.kontext_path, 'scripts/install/conf/rqscheduler.service'), '/etc/systemd/system'], stdout=self.stdout)
-        create_directory('/var/log/rq', 'bg-calc', 'root')
-        subprocess.check_call(['systemctl', 'enable', 'rq-all.target'], stdout=self.stdout)
-        subprocess.check_call(['systemctl', 'enable', 'rqscheduler'], stdout=self.stdout)
+        if celery_worker:
+            print('Setting up Celery...')
+            subprocess.check_call(['adduser', 'bg-calc', WEBSERVER_USER], stdout=self.stdout)
+            create_directory('/etc/conf.d')
+            subprocess.check_call(['cp', os.path.join(
+                self.kontext_path, 'scripts/install/conf/celery-conf.d'), '/etc/conf.d/celery'], stdout=self.stdout)
+            subprocess.check_call(['cp', os.path.join(
+                self.kontext_path, 'scripts/install/conf/celery.service'), '/etc/systemd/system'], stdout=self.stdout)
+            replace_string_in_file('/etc/systemd/system/celery.service',
+                                   '/opt/kontext', self.kontext_path)
+            subprocess.check_call(['cp', os.path.join(
+                self.kontext_path, 'scripts/install/conf/celery.tmpfiles'), '/usr/lib/tmpfiles.d/celery.conf'], stdout=self.stdout)
+            create_directory('/var/log/celery', 'bg-calc', 'root')
+            create_directory('/var/run/celery', 'bg-calc', 'root')
+            subprocess.check_call(['systemctl', 'enable', 'celery'], stdout=self.stdout)
+        else:
+            print('Setting up Rq...')
+            subprocess.check_call(['cp', os.path.join(
+                self.kontext_path, 'scripts/install/conf/rq-all.target'), '/etc/systemd/system'], stdout=self.stdout)
+            subprocess.check_call(['cp', os.path.join(
+                self.kontext_path, 'scripts/install/conf/rq@.service'), '/etc/systemd/system'], stdout=self.stdout)
+            replace_string_in_file('/etc/systemd/system/rq@.service',
+                                   '/opt/kontext', self.kontext_path)
+            subprocess.check_call(['cp', os.path.join(
+                self.kontext_path, 'scripts/install/conf/rqscheduler.service'), '/etc/systemd/system'], stdout=self.stdout)
+            create_directory('/var/log/rq', 'bg-calc', 'root')
+            subprocess.check_call(['systemctl', 'enable', 'rq-all.target'], stdout=self.stdout)
+            subprocess.check_call(['systemctl', 'enable', 'rqscheduler'], stdout=self.stdout)
 
         subprocess.check_call(['systemctl', 'daemon-reload'], stdout=self.stdout)
 
@@ -167,55 +206,38 @@ class SetupManatee(InstallationStep):
     def abort(self):
         pass
 
-    def run(self, manatee_version: str, patch_path: str = None, make_symlinks: bool = True, ucnk_manatee: bool = False):
+    def run(self, manatee_version: str, patch_path: str = None, make_symlinks: bool = True):
         # install manatee with ucnk patch
         print('Installing Manatee-Open...')
-        src_working_dir = f'/usr/local/src/manatee-open-{manatee_version}'
 
-        version_found = False
-        if ucnk_manatee:
-            subprocess.check_call(['git', 'clone', 'https://github.com/czcorpus/manatee-open.git',
-                                   f'manatee-open-{manatee_version}'], cwd='/usr/local/src', stdout=self.stdout)
-            try:
-                subprocess.check_call(
-                    ['git', 'checkout', f'release-{manatee_version}'], cwd=src_working_dir, stdout=self.stdout)
-                version_found = True
-            except subprocess.CalledProcessError:
-                pass
-            if version_found:
-                subprocess.check_call(['autoreconf', '--install', '--force'],
-                                      cwd=src_working_dir, stdout=self.stdout)
+        # if manatee_version == '2.214.1':
+        #     url = 'https://corpora.fi.muni.cz/noske/current/src/manatee-open-2.214.1.tar.gz'
+        # else:
+        url = f'http://corpora.fi.muni.cz/noske/src/manatee-open/manatee-open-{manatee_version}.tar.gz'
+        # build manatee from source using patch
+        subprocess.check_call(wget_cmd(url, self._ncc), cwd='/usr/local/src', stdout=self.stdout)
+        subprocess.check_call(
+            ['tar', 'xzvf', f'manatee-open-{manatee_version}.tar.gz'], cwd='/usr/local/src', stdout=self.stdout)
 
-        if not ucnk_manatee or not version_found:
-            if manatee_version == '2.223.6':
-                url = 'https://corpora.fi.muni.cz/noske/current/src/manatee-open-2.223.6.tar.gz'
+        if patch_path is not None:
+            if os.path.isfile(os.path.join(self.kontext_path, patch_path)):
+                subprocess.check_call(['cp', os.path.join(self.kontext_path, patch_path), './'],
+                                      cwd=f'/usr/local/src/manatee-open-{manatee_version}', stdout=self.stdout)
+                subprocess.check_call(['patch', '-p0', '-i', os.path.basename(patch_path)],
+                                      cwd=f'/usr/local/src/manatee-open-{manatee_version}', stdout=self.stdout)
             else:
-                url = f'http://corpora.fi.muni.cz/noske/src/manatee-open/manatee-open-{manatee_version}.tar.gz'
-            # build manatee from source using patch
-            subprocess.check_call(wget_cmd(url, self._ncc),
-                                  cwd='/usr/local/src', stdout=self.stdout)
-            subprocess.check_call(
-                ['tar', 'xzvf', f'manatee-open-{manatee_version}.tar.gz'], cwd='/usr/local/src', stdout=self.stdout)
-
-            if patch_path is not None:
-                if os.path.isfile(os.path.join(self.kontext_path, patch_path)):
-                    subprocess.check_call(['cp', os.path.join(self.kontext_path, patch_path), './'],
-                                          cwd=src_working_dir, stdout=self.stdout)
-                    subprocess.check_call(['patch', '-p0', '-i', os.path.basename(patch_path)],
-                                          cwd=src_working_dir, stdout=self.stdout)
-                else:
-                    raise FileNotFoundError(
-                        f'Patch file `{os.path.join(self.kontext_path, patch_path)}` not found!')
+                raise FileNotFoundError(
+                    f'Patch file `{os.path.join(self.kontext_path, patch_path)}` not found!')
 
         python_path = subprocess.check_output(['which', 'python3']).decode().split()[0]
         env_variables = os.environ.copy()
         env_variables['PYTHON'] = python_path
         subprocess.check_call(['./configure', '--with-pcre'],
-                              cwd=src_working_dir, stdout=self.stdout, env=env_variables)
+                              cwd=f'/usr/local/src/manatee-open-{manatee_version}', stdout=self.stdout, env=env_variables)
         subprocess.check_call(
-            ['make'], cwd=src_working_dir, stdout=self.stdout)
+            ['make'], cwd=f'/usr/local/src/manatee-open-{manatee_version}', stdout=self.stdout)
         subprocess.check_call(
-            ['make', 'install'], cwd=src_working_dir, stdout=self.stdout)
+            ['make', 'install'], cwd=f'/usr/local/src/manatee-open-{manatee_version}', stdout=self.stdout)
         subprocess.check_call(['ldconfig'], stdout=self.stdout)
 
         if make_symlinks:
@@ -265,14 +287,24 @@ class SetupKontext(InstallationStep):
     def abort(self):
         pass
 
-    def run(self, build_production=True):
+    def run(self, use_celery, build_production=True):
         print('Installing kontext...')
         subprocess.check_call(['cp', self._kontext_conf, 'config.xml'],
                               cwd=os.path.join(self.kontext_path, 'conf'), stdout=self.stdout)
         subprocess.check_call(['cp', 'corplist.default.xml', 'corplist.xml'],
                               cwd=os.path.join(self.kontext_path, 'conf'), stdout=self.stdout)
-        subprocess.check_call(['cp', self._scheduler_conf, 'rq-schedule-conf.json'],
-                              cwd=os.path.join(self.kontext_path, 'conf'), stdout=self.stdout)
+
+        # celery config if required
+        if use_celery:
+            subprocess.check_call(['cp', 'beatconfig.sample.py', 'beatconfig.py'],
+                                  cwd=os.path.join(self.kontext_path, 'conf'), stdout=self.stdout)
+            replace_string_in_file(os.path.join(self.kontext_path, 'conf/config.xml'),
+                                   r'<calc_backend>[\s\S]*<\/calc_backend>', CELERY_CONFIG)
+            replace_string_in_file(os.path.join(self.kontext_path, 'conf/config.xml'),
+                                   r'<job_scheduler>[\s\S]*<\/job_scheduler>', CELERY_SCHEDULER_CONFIG)
+        else:
+            subprocess.check_call(['cp', self._scheduler_conf, 'rq-schedule-conf.json'],
+                                  cwd=os.path.join(self.kontext_path, 'conf'), stdout=self.stdout)
 
         # update config.xml with current install path
         replace_string_in_file(os.path.join(self.kontext_path, 'conf/config.xml'),
@@ -339,7 +371,6 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser('Run step')
     parser.add_argument('step_name', metavar='NAME', type=str, help='Step name')
-    parser.add_argument('--ucnk', action='store_true', default=False, help='Use UCNK sources')
     parser.add_argument('--step-args', metavar='ARGS', type=str,
                         nargs='+', help='Step arguments', default=[])
     args = parser.parse_args()
@@ -354,13 +385,13 @@ if __name__ == '__main__':
                 'KONTEXT_INSTALL_CONF', 'config.default.xml'),
             scheduler_conf=os.environ.get('SCHEDULER_INSTALL_CONF', 'rq-schedule-conf.sample.json'),
             stdout=None, stderr=None)
-        obj.run(False)
+        obj.run(False, False)
     elif args.step_name == 'SetupDefaultUsers':
         obj = SetupDefaultUsers(*init_step_args, args.step_args[0], int(args.step_args[1]))
         obj.run()
     elif args.step_name == 'SetupManatee':
         obj = SetupManatee(*init_step_args, True)
-        obj.run(args.step_args[0], args.step_args[1], bool(int(args.step_args[2])), args.ucnk)
+        obj.run(args.step_args[0], args.step_args[1], bool(int(args.step_args[2])))
     else:
         raise Exception(f'Unknown action: {args.step_name}')
 

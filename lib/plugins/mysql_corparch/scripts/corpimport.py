@@ -80,20 +80,17 @@ async def compare_registry_and_db(infile: AsyncTextIOWrapper, variant: str, rbac
             print('Configuration inconsistency detected:')
             print(f'\t database has extra structure(s): {(db_struct - reg_struct)}')
         # structattrs
-
         reg_sattr = set(
             f'{struct.name}.{x.name}' for struct in registry_conf.structs for x in struct.attributes)
-        db_sattr = set()
-        for struct in db_struct:
-            for x in (await rbackend.load_corpus_structattrs(cursor, corpus_id, struct)):
-                db_sattr.add(f'{struct}.{x["name"]}')
+        db_sattr = set(f'{struct}.{x["name"]}' for struct in db_struct for x in await rbackend.load_corpus_structattrs(
+            cursor, corpus_id, struct))
         if len(reg_sattr - db_sattr) > 0:
             print('Configuration inconsistency detected:')
             print(f'\t registry has extra structural attribute(s): {(reg_sattr - db_sattr)}')
         elif len(db_sattr - reg_sattr) > 0:
             print('Configuration inconsistency detected:')
             print(f'\t database has extra structural attribute(s):: {(db_sattr - reg_sattr)}')
-        print('comparison done')
+
 
 async def compare_registry_dir_and_db(dir_path: str, variant: str, rbackend: Backend, wbackend: WriteBackend):
     for item in os.listdir(dir_path):
@@ -103,13 +100,8 @@ async def compare_registry_dir_and_db(dir_path: str, variant: str, rbackend: Bac
 
 
 async def parse_registry_and_import(
-        infile: AsyncTextIOWrapper,
-        collator_locale: str,
-        variant: str,
-        rbackend: Backend,
-        wbackend: WriteBackend,
-        corp_factory: Callable,
-        update_if_exists: bool):
+        infile: AsyncTextIOWrapper, collator_locale: str, variant: str, rbackend: Backend,
+        wbackend: WriteBackend, corp_factory: Callable, update_if_exists: bool):
     corpus_id, registry_conf = await parse_registry(infile, variant, wbackend)
     iconf = InstallJson(ident=corpus_id, collator_locale=collator_locale)
     try:
@@ -130,7 +122,7 @@ async def parse_registry_and_import(
         else:
             raise Exception(
                 f'Corpus {corpus_id} already in database - use the "-u" option to update registry-based data')
-        return await registry_conf.save(cursor)
+        return await registry_conf.save()
 
 
 def remove_comments(infile):
@@ -285,4 +277,4 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.get_event_loop().run_until_complete(main())
+    asyncio.run(main())

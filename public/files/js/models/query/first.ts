@@ -516,7 +516,7 @@ export class FirstQueryFormModel extends QueryFormModel<FirstQueryFormModelState
                     }
                 );
             }
-        );
+        )
 
         this.addActionHandler(
             Actions.QuerySubmit,
@@ -699,7 +699,7 @@ export class FirstQueryFormModel extends QueryFormModel<FirstQueryFormModelState
         );
 
         this.addActionHandler(
-            Actions.SetShuffle,
+            GenOptsActions.GeneralSetShuffle,
             action => {
                 this.changeState(state => {
                     state.shuffleConcByDefault = action.payload.value;
@@ -751,6 +751,16 @@ export class FirstQueryFormModel extends QueryFormModel<FirstQueryFormModelState
             action => {
                 this.changeState(state => {
                     state.quickSubcorpActive = action.payload.hasSelectedItems
+                });
+            }
+        );
+
+        this.addActionHandler(
+            Actions.QueryAddSubcorp,
+            action => {
+                this.changeState(state => {
+                    state.subcorpList.push(action.payload);
+                    state.quickSubcorpVisible = false;
                 });
             }
         );
@@ -1018,7 +1028,7 @@ export class FirstQueryFormModel extends QueryFormModel<FirstQueryFormModelState
             structs: currArgs.structs,
             refs: currArgs.refs,
             fromp: currArgs.fromp || 0,
-            shuffle: this.state.shuffleConcByDefault && !this.state.shuffleForbidden,
+            shuffle: this.state.shuffleConcByDefault && !this.state.shuffleForbidden ? 1 : 0,
             queries: [],
             text_types: this.disableRestrictSearch(this.state) ? {} : ttSelection,
             context: contextFormArgs,
@@ -1070,7 +1080,7 @@ export class FirstQueryFormModel extends QueryFormModel<FirstQueryFormModelState
             structs: currArgs.structs,
             refs: currArgs.refs,
             fromp: currArgs.fromp || 0,
-            shuffle: this.state.shuffleConcByDefault && !this.state.shuffleForbidden,
+            shuffle: this.state.shuffleConcByDefault && !this.state.shuffleForbidden ? 1 : 0,
             queries: [],
             text_types: this.disableRestrictSearch(this.state) ? {} : ttSelection,
             context: contextFormArgs,

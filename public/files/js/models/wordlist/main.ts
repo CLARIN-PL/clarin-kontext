@@ -170,8 +170,8 @@ export class WordlistResultModel extends StatelessModel<WordlistResultModelState
                             );
                         }
                     )
-                ).subscribe({
-                    next: (data:ConcQueryResponse) => {
+                ).subscribe(
+                    (data:ConcQueryResponse) => {
                         window.location.href = this.layoutModel.createActionUrl(
                             'view',
                             {
@@ -181,10 +181,10 @@ export class WordlistResultModel extends StatelessModel<WordlistResultModelState
                         );
 
                     },
-                    error: err => {
+                    err => {
                         this.layoutModel.showMessage('error', err);
                     }
-                });
+                );
             }
         );
 
@@ -392,7 +392,7 @@ export class WordlistResultModel extends StatelessModel<WordlistResultModelState
         skipHistory=false
     ):Observable<[Array<IndexedResultItem>, number]> {
         return newPage < 1 || newPage > state.numPages ?
-            throwError(() => new Error(this.layoutModel.translate('wordlist__page_not_found_err'))) :
+            throwError(new Error(this.layoutModel.translate('wordlist__page_not_found_err'))) :
             this.loadData(state, newPage, sortColumn).pipe(
                 tap(
                     () => {
@@ -469,7 +469,7 @@ export class WordlistResultModel extends StatelessModel<WordlistResultModelState
             structs: currArgs.structs,
             refs: currArgs.refs,
             fromp: currArgs.fromp || 0,
-            shuffle: false,
+            shuffle: 0,
             queries: [
                 {
                     corpname: formSubmitArgs.corpname,

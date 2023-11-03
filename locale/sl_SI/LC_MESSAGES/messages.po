@@ -260,12 +260,6 @@ msgstr ""
 msgid "First hits in documents"
 msgstr "Prvi zadetki v dokumentih"
 
-msgid "First hits in sentences"
-msgstr "First hits in sentences UNTRANSLATED"
-
-msgid "First hits in"
-msgstr "Prvi zadetki v"
-
 msgid ""
 "Please note that KonText is not compatible with Microsoft Internet Explorer "
 "browser which has been discontinued by Microsoft in favour of the Edge "
@@ -670,42 +664,3 @@ msgstr "KonText frequency table link UNTRANSLATED"
 
 msgid "KonText user {} has sent a link to a frequency distribution table"
 msgstr "Uživatel KonTextu {} vám zaslal odkaz na tabulku frekvenční distribuce UNTRANSLATED"
-
-msgid "Keywords analysis"
-msgstr "Keywords analysis UNTRANSLATED"
-
-msgid "noun"
-msgstr "noun UNTRANSLATED"
-
-msgid "adjective"
-msgstr "adjective UNTRANSLATED"
-
-msgid "pronoun"
-msgstr "pronoun UNTRANSLATED"
-
-msgid "numeral"
-msgstr "numeral UNTRANSLATED"
-
-msgid "verb"
-msgstr "verb UNTRANSLATED"
-
-msgid "adverb"
-msgstr "adverb UNTRANSLATED"
-
-msgid "preposition"
-msgstr "preposition UNTRANSLATED"
-
-msgid "conjunction"
-msgstr "conjunction UNTRANSLATED"
-
-msgid "particle"
-msgstr "particle UNTRANSLATED"
-
-msgid "interjection"
-msgstr "interjection UNTRANSLATED"
-
-msgid "punctuation"
-msgstr "punctuation UNTRANSLATED"
-
-msgid "unknown"
-msgstr "unknown UNTRANSLATED"

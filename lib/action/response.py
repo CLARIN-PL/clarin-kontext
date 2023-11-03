@@ -14,27 +14,15 @@
 # GNU General Public License for more details.
 
 import logging
-from typing import Dict, Iterable, List, Tuple, TypeVar, Generic, Optional
+from typing import Dict, Iterable, List, Tuple, TypeVar, Generic
 from urllib.parse import urlparse
-from sanic.helpers import STATUS_CODES
-from dataclasses import dataclass
-from datetime import datetime
 
+from action.cookie import KonTextCookie
 from action.errors import ForbiddenException
+from sanic.helpers import STATUS_CODES
 from action.templating import ResultType
 
 T = TypeVar('T', bound=ResultType)
-
-
-@dataclass
-class CookieDraft:
-    name: str
-    value: str
-    path: str
-    expires: datetime
-    same_site: Optional[str] = None
-    secure: bool = None
-
 
 class KResponse(Generic[T]):
     """
@@ -63,7 +51,7 @@ class KResponse(Generic[T]):
         (e.g. Content-Type, Cache-Control etc.)
         """
 
-        self._new_cookies: Dict[str, CookieDraft] = {}
+        self._new_cookies: KonTextCookie = KonTextCookie()
 
         self._cookies_same_site = cookies_same_site
 
@@ -122,15 +110,10 @@ class KResponse(Generic[T]):
     def contains_header(self, name: str) -> bool:
         return name in self._headers
 
-    def set_cookie(self, name, value, path, expires: datetime):
-        new_cookie = CookieDraft(name=name, value=value, path=path, expires=expires)
-        if self._cookies_same_site is not None:
-            new_cookie.secure = True
-            new_cookie.same_site = self._cookies_same_site
-        self._new_cookies[name] = new_cookie
-
-    def get_cookies(self) -> List[CookieDraft]:
-        return list(self._new_cookies.values())
+    def set_cookie(self, name, value, path, expires):
+        self._new_cookies[name] = value
+        self._new_cookies[name]['path'] = path
+        self._new_cookies[name]['expires'] = expires
 
     def set_not_found(self) -> None:
         """
@@ -195,19 +178,23 @@ class KResponse(Generic[T]):
         """
         if return_type == 'json':
             self._headers['Content-Type'] = 'application/json'
-        elif return_type == 'xml' or return_type == 'template_xml':
+        elif return_type == 'xml':
             self._headers['Content-Type'] = 'application/xml'
         elif return_type == 'plain':
             if 'Content-Type' not in self._headers:
                 self._headers['Content-Type'] = 'text/plain'
         elif return_type == 'template':
             self._headers['Content-Type'] = 'text/html'
-        elif return_type == 'template_xml':
-            self._headers['Content-Type'] = 'application/xml'
         else:
             logging.getLogger(__name__).error('unknown action return type "{}"'.format(return_type))
         # Note: 'template' return type should never overwrite content type here as it is action-dependent
         ans = {}
         for k, v in sorted([x for x in list(self._headers.items()) if bool(x[1])], key=lambda item: item[0]):
             ans[k] = v
+        # Cookies
+        for cookie in self._new_cookies.values():
+            if self._cookies_same_site is not None:
+                cookie['Secure'] = True
+                cookie['SameSite'] = self._cookies_same_site
+            ans['Set-Cookie'] = cookie.OutputString()
         return ans

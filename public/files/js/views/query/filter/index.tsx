@@ -72,7 +72,6 @@ export interface SubHitsFormState {
 
 export interface FirstHitsFormProps {
     formType:Kontext.ConcFormTypes.FIRSTHITS;
-    structure:string;
     operationIdx?:number;
     opKey:string;
 }
@@ -182,12 +181,10 @@ export function init({
     const RangeSelector:React.FC<{
         filterId:string;
         filfposValue:Kontext.FormValue<string>;
-        filfposUnitValue:string;
         filtposValue:Kontext.FormValue<string>;
-        filtposUnitValue:string;
-
 
     }> = (props) => {
+
         const handleToFromRangeValChange = (pos) => (evt) => {
             dispatcher.dispatch<typeof Actions.FilterInputSetRange>({
                 name: Actions.FilterInputSetRange.name,
@@ -200,7 +197,7 @@ export function init({
         };
 
         return (
-            <S.RangeSelector>
+            <div>
                 <label>{he.translate('query__qfilter_range_srch_th')} </label>
                 <label>
                     {he.translate('query__qfilter_range_from')}:{'\u00a0'}
@@ -209,7 +206,6 @@ export function init({
                             value={props.filfposValue.value}
                             onChange={handleToFromRangeValChange('from')} />
                     </layoutViews.ValidatedItem>
-                    {props.filfposUnitValue ? <strong className="unit">{props.filfposUnitValue}</strong> : null}
                 </label>
                 {'\u00a0'}
                 <label>
@@ -219,9 +215,8 @@ export function init({
                             value={props.filtposValue.value}
                             onChange={handleToFromRangeValChange('to')} />
                     </layoutViews.ValidatedItem>
-                    {props.filtposUnitValue ? <strong className="unit">{props.filtposUnitValue}</strong> : null}
                 </label>
-            </S.RangeSelector>
+            </div>
         );
     };
 
@@ -354,9 +349,7 @@ export function init({
                 <RangeSelector
                     filterId={this.props.filterId}
                     filfposValue={this.props.filfposValues[this.props.filterId]}
-                    filfposUnitValue={this.props.filfposUnitValues[this.props.filterId]}
-                    filtposValue={this.props.filtposValues[this.props.filterId]}
-                    filtposUnitValue={this.props.filfposUnitValues[this.props.filterId]} />,
+                    filtposValue={this.props.filtposValues[this.props.filterId]} />,
                 <InclKWicCheckbox
                     value={this.props.inclkwicValues[this.props.filterId]}
                     filterId={this.props.filterId} />
@@ -544,7 +537,7 @@ export function init({
                     <label>
                         {he.translate('query__used_first_hits_struct')}:{'\u00a0'}
                         <select disabled>
-                            <option>{this.props.opStructMapping[this.props.opKey]}</option>
+                            <option>{this.props.docStructValues[this.props.opKey]}</option>
                         </select>
                     </label>
                     <p>{he.translate('query__the_form_no_params_to_change')}.</p>

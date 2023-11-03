@@ -21,7 +21,8 @@ import aiofiles.os
 import bgcalc
 import settings
 from action.control import http_action
-from action.errors import ImmediateRedirectException, NotFoundException
+from action.errors import (
+    ImmediateRedirectException, NotFoundException)
 from action.krequest import KRequest
 from action.model.base import BaseActionModel
 from action.model.user import UserActionModel
@@ -39,13 +40,7 @@ async def root_action(amodel: BaseActionModel, req: KRequest, resp: KResponse):
 
 
 async def _check_task_status(amodel: UserActionModel, task_id: str) -> Optional[AsyncTaskStatus]:
-    task = None
-    for t in (await amodel.get_async_tasks()):
-        if t.ident == task_id:
-            task = t
-            break
-    if task is None: # not found but it can still be present on worker; TODO problem is, not all attrs will be preserved
-        task = AsyncTaskStatus(ident=task_id, label='', status='PENDING', category='')
+    task = AsyncTaskStatus(ident=task_id, label='', status='PENDING', category='')
     found = await amodel.update_async_task_status(task)
     return task if found else None
 
@@ -66,7 +61,7 @@ async def check_tasks_status(amodel: UserActionModel, req: KRequest, resp: KResp
 async def get_task_result(amodel: BaseActionModel, req: KRequest, resp: KResponse):
     worker = bgcalc.calc_backend_client(settings)
     result = worker.AsyncResult(req.args.get('task_id'))
-    return dict(result=await result.get())
+    return dict(result=result.get())
 
 
 @bp.route('/remove_task_info', methods=['DELETE'])

@@ -63,7 +63,10 @@ export class VirtualKeyboardModel extends StatelessModel<VirtualKeyboardState>
             capsOn: false,
             layouts: kbLayouts,
             activeKey: null,
-            currentLayoutIdx: 0,
+            currentLayoutIdx: List.findIndex(
+                v => v.name === pageModel.getConf('DefaultVirtKeyboard'),
+                kbLayouts
+            ),
             activeDeadKeyIndex: null
         });
         this.pageModel = pageModel;
@@ -146,8 +149,6 @@ export class VirtualKeyboardModel extends StatelessModel<VirtualKeyboardState>
                 }
                 if (idx !== -1) {
                     state.currentLayoutIdx = idx;
-                } else {
-                    console.warn(`virtual keyboard layout not found: ${action.payload.code}`);
                 }
             }
         );

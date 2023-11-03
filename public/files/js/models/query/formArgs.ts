@@ -82,9 +82,7 @@ export interface FilterFormArgs extends ConcFormArgs {
     pnfilter:'p'|'n';
     filfl:'f'|'l';
     filfpos:string;
-    filfpos_unit:string;
     filtpos:string;
-    filtpos_unit:string;
     inclkwic:boolean;
     qmcase:boolean;
     default_attr:string;
@@ -147,7 +145,7 @@ export interface SwitchMainCorpArgs extends ConcFormArgs {
 
 export interface FirstHitsFormArgs extends ConcFormArgs {
     form_type:Kontext.ConcFormTypes.FIRSTHITS|Kontext.ConcFormTypes.LOCKED;
-    struct:string;
+    doc_struct:string;
 }
 
 export interface ShuffleFormArgs extends ConcFormArgs {

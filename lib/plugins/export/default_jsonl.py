@@ -24,23 +24,20 @@ to JSONL.
 import io
 from typing import Any, Dict, List, Tuple
 
-import ujson as json
+import ujson
 from action.argmapping.wordlist import WordlistSaveFormArgs
 from action.model.concordance import ConcActionModel
-from action.model.keywords import KeywordsActionModel
 from action.model.pquery import ParadigmaticQueryActionModel
 from action.model.wordlist import WordlistActionModel
 from babel import Locale
 from babel.numbers import format_decimal
 from bgcalc.coll_calc import CalculateCollsResult
-from bgcalc.keywords import KeywordsResult
 from bgcalc.pquery.storage import PqueryDataLine
 from conclib.errors import ConcordanceQueryParamsError
 from kwiclib.common import KwicPageData
 from views.colls import SavecollArgs
 from views.concordance import SaveConcArgs
 from views.freqs import SavefreqArgs
-from views.keywords import SaveKeywordsArgs
 from views.pquery import SavePQueryArgs
 
 from . import AbstractExport
@@ -64,7 +61,7 @@ class JSONLExport(AbstractExport):
         return self._document.getvalue()
 
     def _writerow(self, anything):
-        self._document.write(json.dumps(anything) + "\n")
+        self._document.write(ujson.dumps(anything) + "\n")
 
     def _enhance_refs(self, item, refs: List[str]):
         item['ref'] = dict((refs[i], v) for i, v in enumerate(item['ref']))
@@ -116,11 +113,6 @@ class JSONLExport(AbstractExport):
             tmp = item.to_dict()
             tmp['str'] = tmp['value']
             del tmp['value']
-            self._writerow(tmp)
-
-    async def write_keywords(self, amodel: KeywordsActionModel, result: KeywordsResult, args: SaveKeywordsArgs):
-        for item in result.data:
-            tmp = item.to_dict()
             self._writerow(tmp)
 
     async def write_wordlist(self, amodel: WordlistActionModel, data: List[Tuple[str, int]], args: WordlistSaveFormArgs):

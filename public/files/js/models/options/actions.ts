@@ -53,6 +53,12 @@ export class Actions {
         name: 'GENERAL_VIEW_OPTIONS_SET_LINE_NUMS'
     };
 
+    static GeneralSetShuffle:Action<{
+        value:boolean;
+    }> = {
+        name: 'GENERAL_VIEW_OPTIONS_SET_SHUFFLE'
+    };
+
     static GeneralSetUseRichQueryEditor:Action<{
         value:boolean;
     }> = {
@@ -98,13 +104,6 @@ export class Actions {
         debounced?:boolean;
     }> = {
         name: 'GENERAL_VIEW_OPTIONS_SET_SUBCLISTPAGESIZE'
-    };
-
-    static GeneralSetKwPageSize:Action<{
-        value:string;
-        debounced?:boolean;
-    }> = {
-        name: 'GENERAL_VIEW_OPTIONS_SET_KWPAGESIZE'
     };
 
     static GeneralSubmit:Action<{

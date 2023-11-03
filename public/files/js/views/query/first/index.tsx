@@ -28,7 +28,6 @@ import { init as alignedInit } from '../aligned';
 import { init as contextInit } from '../context';
 import { init as ttViewsInit } from '../../textTypes';
 import { init as quickSubcorpViewsInit } from '../../subcorp/quickSubcorp';
-import { init as commonInit} from './common';
 import * as Kontext from '../../../types/kontext';
 import * as TextTypes from '../../../types/textTypes';
 import * as PluginInterfaces from '../../../types/plugins';
@@ -42,8 +41,6 @@ import { Actions } from '../../../models/query/actions';
 import { TTSelOps } from '../../../models/textTypes/selectionOps';
 import { Actions as HelpActions } from '../../../models/help/actions';
 import * as S from './style';
-import * as SC from '../input/style';
-import * as SQ from '../style';
 import { QueryHelpModel, QueryHelpModelState } from '../../../models/help/queryHelp';
 import { SearchHistoryModel } from '../../../models/searchHistory';
 import { QuickSubcorpModel } from '../../../models/subcorp/quickSubcorp';
@@ -122,7 +119,7 @@ export function init({
         querySuggest,
         searchHistoryModel
     });
-    const {AlignedCorpora, AlignedCorporaLite} = alignedInit({
+    const {AlignedCorpora} = alignedInit({
             dispatcher: dispatcher,
             he: he,
             inputViews: inputViews
@@ -130,7 +127,6 @@ export function init({
     const contextViews = contextInit(dispatcher, he, queryContextModel);
     const ttViews = ttViewsInit(dispatcher, he, textTypesModel);
     const quickSubcorpViews = quickSubcorpModel ? quickSubcorpViewsInit({ dispatcher, he, quickSubcorpModel }) : null;
-    const { AltCorpSuggestion } = commonInit(he);
     const layoutViews = he.getLayoutViews();
 
 
@@ -235,34 +231,10 @@ export function init({
                 </a>
             );
         }
-
-        const onAltCorpClose = () => {
-            dispatcher.dispatch(
-                Actions.CloseSuggestAltCorp
-            );
-        };
-
-        const onAltCorpSubmit = (useAltCorp: boolean) => {
-            dispatcher.dispatch<typeof Actions.QuerySubmit>({
-                name: Actions.QuerySubmit.name,
-                payload: {useAltCorp}
-            });
-        };
-
-        const onShuffleToggle = (value:boolean) => {
-            dispatcher.dispatch(
-                Actions.SetShuffle,
-                {value}
-            );
-        };
-
         return (
             <S.QueryForm>
                 {props.suggestAltCorpVisible ?
-                    <AltCorpSuggestion
-                        altCorp={props.concPreflight.alt_corp}
-                        onClose={onAltCorpClose}
-                        onSubmit={onAltCorpSubmit} /> :
+                    <AltCorpSuggestion altCorp={props.concPreflight.alt_corp} /> :
                     null
                 }
                 <div onKeyDown={keyEventHandler}>
@@ -338,25 +310,9 @@ export function init({
                         <div className="buttons">
                             {props.isBusy ?
                                 <layoutViews.AjaxLoaderBarImage /> :
-                                <>
-                                    <button type="button" className="default-button" onClick={handleSubmit}>
-                                        {he.translate('query__search_btn')}
-                                    </button>
-                                    <S.ShuffleResultWrapper>
-                                        <label htmlFor="shuffle-result-switch">
-                                            {he.translate('query__shuffle_result')}
-                                            <layoutViews.InlineHelp
-                                                htmlClass="shuffle-help"
-                                                customStyle={{maxWidth: '30em', lineHeight: '1.2em'}}>
-                                            {he.translate('query__shuffle_result_help')}
-                                            </layoutViews.InlineHelp>
-                                        </label>
-                                        <layoutViews.ToggleSwitch
-                                            id="shuffle-result-switch"
-                                            onChange={onShuffleToggle}
-                                            checked={props.shuffleConcByDefault }/>
-                                    </S.ShuffleResultWrapper>
-                                </>
+                                <button type="button" className="default-button" onClick={handleSubmit}>
+                                    {he.translate('query__search_btn')}
+                                </button>
                             }
                         </div>
                         {posAttrsCompatibleWithAllAlignedCorpora(props.concViewPosAttrs, props.alignCommonPosAttrs) ?
@@ -436,11 +392,11 @@ export function init({
 
         if (props.hasSelectedItems) {
             return (
-                <SC.SelectedTextTypesLite className="specify-text-types">
-                    <SQ.ExpandableSectionLabel>
+                <section className="SelectedTextTypesLite specify-text-types">
+                    <h2>
                         <layoutViews.ExpandButton isExpanded={props.hasSelectedItems} />
                         <span>{he.translate('query__chosen_texts')}</span>
-                    </SQ.ExpandableSectionLabel>
+                    </h2>
                     <div className="contents">
                         <ul>
                             {pipe(
@@ -459,16 +415,59 @@ export function init({
                             ({he.translate('query__chosen_texts_cannot_be_changed')})
                         </p>
                     </div>
-                </SC.SelectedTextTypesLite>
+                </section>
             );
 
         } else {
-            return <SC.SelectedTextTypesLite />;
+            return <section className="SelectedTextTypesLite" />;
         }
     }
 
     const BoundSelectedTextTypesLite = Bound(SelectedTextTypesLite, textTypesModel);
 
+    // -------- <AltCorpSuggestion /> ------------------------------------
+
+    const AltCorpSuggestion:React.FC<{
+        altCorp:string;
+    }> = (props) => {
+
+        const onClose = () => {
+            dispatcher.dispatch(
+                Actions.CloseSuggestAltCorp
+            );
+        };
+
+        const onSubmit = (useAltCorp: boolean) => {
+            dispatcher.dispatch<typeof Actions.QuerySubmit>({
+                name: Actions.QuerySubmit.name,
+                payload: {useAltCorp}
+            });
+        };
+
+        return (
+            <layoutViews.ModalOverlay onCloseKey={onClose}>
+                <layoutViews.CloseableFrame onCloseClick={onClose} label={he.translate('query__altcorp_heading')}>
+                    <S.CutOffBox>
+                        <div className="message">
+                            <layoutViews.StatusIcon status="warning" />
+                            <p>
+                                {he.translate('query__altcorp_suggested_{alt_corpus}', {alt_corpus: props.altCorp})}
+                            </p>
+                        </div>
+                        <p className="submit">
+                            <button type='button' className='default-button' onClick={() => onSubmit(false)}>
+                                {he.translate('query__search_anyway_btn')}
+                            </button>
+
+                            <button type='button' className='default-button' onClick={() => onSubmit(true)}>
+                                {he.translate('query__search_in_{corpus}_btn', {corpus: props.altCorp})}
+                            </button>
+                        </p>
+                    </S.CutOffBox>
+                </layoutViews.CloseableFrame>
+            </layoutViews.ModalOverlay>
+        );
+    }
 
     // -------- <QueryFormLite /> ------------------------------------
 
@@ -541,13 +540,6 @@ export function init({
                                 qsuggPlugin={querySuggest}
                                 tagsets={this.props.tagsets[this.props.corpname]} />
                         </div>
-                        {this.props.corpora.length > 1 || this.props.availableAlignedCorpora.length > 0 ?
-                            <AlignedCorporaLite
-                                availableCorpora={this.props.availableAlignedCorpora}
-                                alignedCorpora={List.tail(this.props.corpora)}
-                                queries={this.props.queries} />
-                            : null
-                        }
                         <inputViews.AdvancedFormFieldset
                                 uniqId="section-specify-context"
                                 formVisible={this.props.contextFormVisible}

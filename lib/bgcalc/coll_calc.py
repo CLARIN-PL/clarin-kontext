@@ -13,12 +13,12 @@
 # GNU General Public License for more details.
 
 import hashlib
-import logging
 import os
 import pickle
 import time
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
+import logging
 
 import aiofiles
 import aiofiles.os
@@ -28,8 +28,8 @@ import corplib
 import settings
 from bgcalc.errors import UnfinishedConcordanceError
 from conclib.calc import require_existing_conc
-from corplib.abstract import SubcorpusIdent
 from corplib.errors import MissingSubCorpFreqFile
+from corplib.abstract import SubcorpusIdent
 
 TASK_TIME_LIMIT = settings.get_int('calc_backend', 'task_time_limit', 300)
 
@@ -88,8 +88,7 @@ class CollCalcCache(object):
                 try:
                     collocs = pickle.loads(await f.read())
                 except Exception as ex:
-                    logging.getLogger(__name__).error(
-                        f'Failed to read coll cache file: {ex}. Removing.')
+                    logging.getLogger(__name__).error(f'Failed to read coll cache file: {ex}. Removing.')
                     await aiofiles.os.remove(cache_path)
                     raise ex
         else:
@@ -170,7 +169,7 @@ async def calculate_colls(coll_args: CollCalcArgs) -> CalculateCollsResult:
         res = await worker.send_task(
             'calculate_colls', object.__class__, args=(coll_args,), time_limit=TASK_TIME_LIMIT)
         # worker task caches the value AFTER the result is returned (see worker.py)
-        ans = await res.get()
+        ans = res.get()
     else:
         ans = dict(data=collocs, processing=0)
     if isinstance(ans, Exception):

@@ -2,7 +2,7 @@ DROP TABLE IF EXISTS kontext_conc_persistence;
 
 CREATE TABLE kontext_conc_persistence (
     id VARCHAR(191) PRIMARY KEY,
-    data JSON NOT NULL,
+    data TEXT NOT NULL,
     created TIMESTAMP NOT NULL,
     num_access INT NOT NULL DEFAULT 0,
     last_access TIMESTAMP
