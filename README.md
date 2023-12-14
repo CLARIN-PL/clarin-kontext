@@ -1,3 +1,32 @@
+# CLARIN-PL README
+
+Środowisko:
+- Ubuntu 20.04
+- Python 3.8
+
+### Baza z administracją
+
+Stawiamy bazę z administracją na porcie 40001
+`docker-compose -f docker-compose.mysql.yaml up`
+
+### Instalacja
+
+Kilka rzeczy zanim uruchomimy skrypt instalacyjny - inaczej zwraca błędy:
+- Tworzymy foldery `/etc/nginx/sites-available/` `/root/.cache/Cypress/` 
+- Instalujemy kilka paczek - `sudo apt-get install swig libpcre3-dev libltdl-dev npm nginx -y`
+- Instalujemy redis:
+`curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg`
+`echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list`
+`sudo apt-get update`
+`sudo apt-get install redis`
+- Instalujemy pythonowe paczki:
+`pip install aiohttp aioredis aiomysql concurrent-log-handler babel sanic dataclasses_json jinja2 aiocsv cairosvg`
+
+Uruchamiamy skrypt instalacyjny: 
+`sudo python scripts/install/install.py`
+
+
+
 ![KonText screenshot](https://github.com/czcorpus/kontext/blob/master/doc/images/kontext-screenshot1.jpg)
 
 

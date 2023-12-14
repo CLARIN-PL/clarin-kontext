@@ -324,7 +324,7 @@ class SetupKontext(InstallationStep):
         create_directory('/tmp/kontext-upload', WEBSERVER_USER, None, 0o775)
 
         if build_production:
-            subprocess.check_call(['npm', 'install'], cwd=self.kontext_path, stdout=self.stdout)
+            subprocess.check_call(['npm', 'install', '--unsafe-perm=true', '--allow-root cypress'], cwd=self.kontext_path, stdout=self.stdout)
             self.cmd(['npm', 'start', 'build:production'], cwd=self.kontext_path)
 
 

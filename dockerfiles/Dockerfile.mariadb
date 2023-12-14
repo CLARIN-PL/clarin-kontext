@@ -1,4 +1,4 @@
-FROM mariadb:latest
+FROM mariadb:11.2
 
 ENV MYSQL_ROOT_PASSWORD="root-secret"
 ENV MYSQL_DATABASE="kontext"

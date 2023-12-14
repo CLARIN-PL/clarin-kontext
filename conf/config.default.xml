@@ -85,7 +85,7 @@
     <plugins>
         <application_bar/>
         <auth>
-            <module>default_auth</module>
+            <module>mysql_auth</module>
             <js_module>defaultAuth</js_module>
             <anonymous_user_id>0</anonymous_user_id>
             <auth_cookie_name>kontext_session</auth_cookie_name>
@@ -101,23 +101,23 @@
             <cache_dir>/var/local/corpora/cache</cache_dir>
         </conc_cache>
         <query_persistence>
-            <module>default_query_persistence</module>
+            <module>mysql_query_persistence</module>
+            <anonymous_user_ttl_days>7</anonymous_user_ttl_days>
             <ttl_days>100</ttl_days>
             <archive_dir>/var/local/corpora/query_persistence</archive_dir>
+            <archive_queue_key>arch</archive_queue_key>
+            <implicit_archiving>true</implicit_archiving>
         </query_persistence>
         <corparch>
-            <module>default_corparch</module>
+            <module>mysql_corparch</module>
             <js_module>defaultCorparch</js_module>
             <file>/opt/kontext/conf/corplist.xml</file>
             <root_elm_path>/corplist</root_elm_path>
             <tag_prefix>+</tag_prefix>
             <max_num_hints>10</max_num_hints>
             <default_page_list_size>30</default_page_list_size>
+            <max_num_favorites>5</max_num_favorites>
         </corparch>
-        <subc_storage>
-            <module>default_subc_storage</module>
-            <db_path>/var/local/corpora/subc_storage.db</db_path>
-        <subc_storage/>
         <db>
             <module>redis_db</module>
             <host>localhost</host>
@@ -125,7 +125,15 @@
             <id>1</id>
         </db>
         <integration_db>
-            <module>default_integration_db</module>
+            <module>mysql_integration_db</module>
+            <host>localhost</host>
+            <db>kontext</db>
+            <user>kontext_user</user>
+            <passwd>kontext_password</passwd>
+            <pool_size>2</pool_size>
+            <retry_delay>3</retry_delay>
+            <retry_attempts>3</retry_attempts>
+            <environment_wait_sec>5</environment_wait_sec>
             <!-- default plugin provides a "null" integration database; please keep this setting
             unless you want to include your own integration database -->
         </integration_db>
@@ -169,10 +177,16 @@
             </excluded_users>
         </settings_storage>
         <subcmixer/>
+        <subc_storage>
+            <module>mysql_subc_storage</module>
+            <shared_subc_user_id>100</shared_subc_user_id>
+            <preflight_subcorpus_size>100</preflight_subcorpus_size>
+            <db_path>/var/local/corpora/subc_storage.db</db_path>
+        </subc_storage>
         <syntax_viewer/>
         <taghelper/>
         <user_items>
-            <module>default_user_items</module>
+            <module>mysql_user_items</module>
             <max_num_favorites>15</max_num_favorites>
         </user_items>
         <chart_export>
