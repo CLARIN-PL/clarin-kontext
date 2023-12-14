@@ -25,6 +25,17 @@ Kilka rzeczy zanim uruchomimy skrypt instalacyjny - inaczej zwraca błędy:
 Uruchamiamy skrypt instalacyjny: 
 `sudo python scripts/install/install.py`
 
+Stawiamy instancje:
+`sudo -u www-data python3 public/app.py --address 127.0.0.1 --port 8080`
+
+Import korpusów:
+- należy wrzucić pliki konfiguracyjne korpusów do /var/lib/manatee/registry/ a pliki wertykalne w miejsce wskazane w plikach konfiguracyjnych
+- skompilować korpusy 
+`compilecorp /var/lib/manatee/registry/{nazwa_pliku_conf}`
+- zaimportować 
+`python3 lib/plugins/mysql_corparch/scripts/corpimport.py import /var/lib/manatee/registry/{nazwa_pliku_conf}`
+
+
 
 
 ![KonText screenshot](https://github.com/czcorpus/kontext/blob/master/doc/images/kontext-screenshot1.jpg)
