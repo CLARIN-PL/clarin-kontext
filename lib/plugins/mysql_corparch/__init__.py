@@ -309,7 +309,7 @@ class MySQLCorparch(AbstractSearchableCorporaArchive):
         if corp_name:
             try:
                 # get rid of path-like corpus ID prefix
-                corp_name = corp_name.lower()
+                # corp_name = corp_name.lower()
                 async with self._backend.cursor() as cursor:
                     corp_info = await self._fetch_corpus_info(cursor, corp_name, plugin_ctx.user_lang)
                     if corp_info is not None:

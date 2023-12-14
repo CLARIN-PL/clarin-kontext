@@ -66,9 +66,10 @@ class WriteBackend(DatabaseWriteBackend[Cursor]):
         async with self._db.cursor() as cursor:
             yield cursor
 
-    async def commit(self):
-        async with self._db.cursor() as cursor:
-            await cursor.connection.commit()
+#    async def commit(self):
+#        async with self._db.cursor() as cursor:
+#            await cursor.connection.commit()
+#        self.cursor.connection.commit()
 
     async def remove_corpus(self, cursor: Cursor, corpus_id):
         # articles
@@ -208,7 +209,7 @@ class WriteBackend(DatabaseWriteBackend[Cursor]):
                 await self.attach_corpus_article(install_json.ident, article_id, art_type)
 
         # keywords
-        avail_keywords = set(x['id'] for x in await self._ro_backend.load_all_keywords(cursor))
+        avail_keywords = set(x['id'] for x in await self._ro_backend.load_all_keywords())
         for k in install_json.metadata.keywords:
             if k in avail_keywords:
                 vals4 = (install_json.ident, k)
@@ -329,7 +330,7 @@ class WriteBackend(DatabaseWriteBackend[Cursor]):
                 (install_json.ident, rma))
         for i, aa in enumerate(added_posattrs):
             keyvals = [(v.name, v.value) for v in new_posattrs[aa].non_empty_items]
-            await self.save_corpus_posattr(install_json.ident, aa, i, keyvals)
+            await self.save_corpus_posattr(cursor, install_json.ident, aa, i, keyvals)
         # structural attributes
         await cursor.execute(
             'SELECT CONCAT(structure_name, ".", name) AS name '
@@ -356,7 +357,7 @@ class WriteBackend(DatabaseWriteBackend[Cursor]):
             new_structs[struct.name] = struct
         for i, struct in enumerate(new_structs.keys()):
             await self.save_corpus_structure(
-                install_json.ident, struct, i,
+                cursor, install_json.ident, struct, i,
                 [(a.name, a.value) for a in new_structs[struct].simple_items])
         removed_structures = curr_structs - set(new_structs.keys())
 
@@ -370,7 +371,7 @@ class WriteBackend(DatabaseWriteBackend[Cursor]):
         for i, item in enumerate(added_structattrs):
             s, a = item.split('.')
             props = [(x.name, x.value) for x in new_structattrs[item].attrs]
-            await self.save_corpus_structattr(install_json.ident, s, a, i, props)
+            await self.save_corpus_structattr(cursor, install_json.ident, s, a, i, props)
 
         for structattr in removed_structattrs:
             struct, attr = structattr.split('.')
@@ -416,94 +417,89 @@ class WriteBackend(DatabaseWriteBackend[Cursor]):
     def normalize_raw_attrlist(s):
         return re.sub(r'\s+', '', s.replace('|', ','))
 
-    async def save_registry_table(self, corpus_id, variant, values):
+    async def save_registry_table(self, cursor: Cursor, corpus_id, variant, values):
         values = dict(values)
-        async with self._db.cursor() as cursor:
-            await self._create_struct_if_none(cursor, corpus_id, values.get('DOCSTRUCTURE', None))
-        async with self._db.cursor() as cursor:
-            t1 = datetime.datetime.now(
-                tz=pytz.timezone('Europe/Prague')).strftime("%Y-%m-%dT%H:%M:%S%z")
+        await self._create_struct_if_none(cursor, corpus_id, values.get('DOCSTRUCTURE', None))
+        t1 = datetime.datetime.now(
+            tz=pytz.timezone('Europe/Prague')).strftime("%Y-%m-%dT%H:%M:%S%z")
 
-            if await self._registry_table_exists(cursor, corpus_id):
-                cols = ['updated'] + [REG_COLS_MAP[k]
-                                      for k, v in list(values.items()) if k in REG_COLS_MAP]
-                vals = [t1]
-                for k, v in values.items():
-                    if k in ('SUBCORPATTRS', 'FREQTTATTRS'):
-                        vals.append(self.normalize_raw_attrlist(v))
-                    elif k in REG_COLS_MAP:
-                        vals.append(v)
-                vals.append(corpus_id)
-                sql = 'UPDATE registry_conf SET {0} WHERE corpus_name = %s'.format(
-                    ', '.join(f'{c} = %s' for c in cols))
-                await cursor.execute(sql, vals)
-                created = False
-            else:
-
-                cols = ['corpus_name', 'created', 'updated'] + [REG_COLS_MAP[k]
-                                                                for k, v in list(values.items()) if k in REG_COLS_MAP]
-                vals = [corpus_id, t1, t1]
-                for k, v in values.items():
-                    if k in ('SUBCORPATTRS', 'FREQTTATTRS'):
-                        vals.append(self.normalize_raw_attrlist(v))
-                    elif k in REG_COLS_MAP:
-                        vals.append(v)
-                sql = 'INSERT INTO registry_conf ({0}) VALUES ({1})'.format(
-                    ', '.join(cols), ', '.join(len(cols) * ['%s']))
-                await cursor.execute(sql, vals)
-                created = True
-
-            if await self._registry_variable_exists(cursor, corpus_id, variant):
-                if variant is not None:
-                    await cursor.execute(
-                        'DELETE FROM registry_variable WHERE corpus_name = %s AND variant = %s', (corpus_id, variant))
-                else:
-                    await cursor.execute(
-                        'DELETE FROM registry_variable WHERE corpus_name = %s AND variant IS NULL', (corpus_id,))
-            cols = ['corpus_name', 'variant'] + [REG_VAR_COLS_MAP[k] for k, v in list(values.items())
-                                                 if k in REG_VAR_COLS_MAP]
-            vals = [corpus_id, variant] + \
-                [v for k, v in list(values.items()) if k in REG_VAR_COLS_MAP]
-            sql = 'INSERT INTO registry_variable ({0}) VALUES ({1})'.format(
-                ', '.join(cols), ', '.join(len(cols) * ['%s']))
-            print(sql)
+        if await self._registry_table_exists(cursor, corpus_id):
+            cols = ['updated'] + [REG_COLS_MAP[k]
+                                  for k, v in list(values.items()) if k in REG_COLS_MAP]
+            vals = [t1]
+            for k, v in values.items():
+                if k in ('SUBCORPATTRS', 'FREQTTATTRS'):
+                    vals.append(self.normalize_raw_attrlist(v))
+                elif k in REG_COLS_MAP:
+                    vals.append(v)
+            vals.append(corpus_id)
+            sql = 'UPDATE registry_conf SET {0} WHERE corpus_name = %s'.format(
+                ', '.join(f'{c} = %s' for c in cols))
             await cursor.execute(sql, vals)
-            return created
+            created = False
+        else:
 
-    async def save_corpus_posattr(self, corpus_id, name, position, values):
+            cols = ['corpus_name', 'created', 'updated'] + [REG_COLS_MAP[k]
+                                                            for k, v in list(values.items()) if k in REG_COLS_MAP]
+            vals = [corpus_id, t1, t1]
+            for k, v in values.items():
+                if k in ('SUBCORPATTRS', 'FREQTTATTRS'):
+                    vals.append(self.normalize_raw_attrlist(v))
+                elif k in REG_COLS_MAP:
+                    vals.append(v)
+            sql = 'INSERT INTO registry_conf ({0}) VALUES ({1})'.format(
+                ', '.join(cols), ', '.join(len(cols) * ['%s']))
+            await cursor.execute(sql, vals)
+            created = True
+
+        if await self._registry_variable_exists(cursor, corpus_id, variant):
+            if variant is not None:
+                await cursor.execute(
+                    'DELETE FROM registry_variable WHERE corpus_name = %s AND variant = %s', (corpus_id, variant))
+            else:
+                await cursor.execute(
+                    'DELETE FROM registry_variable WHERE corpus_name = %s AND variant IS NULL', (corpus_id,))
+        cols = ['corpus_name', 'variant'] + [REG_VAR_COLS_MAP[k] for k, v in list(values.items())
+                                             if k in REG_VAR_COLS_MAP]
+        vals = [corpus_id, variant] + \
+            [v for k, v in list(values.items()) if k in REG_VAR_COLS_MAP]
+        sql = 'INSERT INTO registry_variable ({0}) VALUES ({1})'.format(
+            ', '.join(cols), ', '.join(len(cols) * ['%s']))
+        await cursor.execute(sql, vals)
+        return created
+
+    async def save_corpus_posattr(self, cursor: Cursor, corpus_id, name, position, values):
         """
         """
 
-        async with self._db.cursor() as cursor:
-            cols = ['corpus_name', 'name', 'position'] + [POS_COLS_MAP[k]
-                                                          for k, v in values if k in POS_COLS_MAP]
-            vals = [corpus_id, name, position] + [v for k, v in values if k in POS_COLS_MAP]
-            try:
-                await cursor.execute('SELECT * FROM corpus_posattr WHERE corpus_name = %s AND name = %s', (corpus_id, name))
-                row = await cursor.fetchone()
-                if row is None:
-                    sql = 'INSERT INTO corpus_posattr ({0}) VALUES ({1})'.format(
-                        ', '.join(cols), ', '.join(['%s'] * len(vals)))
-                    await cursor.execute(sql, vals)
-                else:
-                    ucols = ', '.join(f'{v} = %s' for v in cols)
-                    sql = 'UPDATE corpus_posattr SET {0} WHERE corpus_name = %s AND name = %s'.format(
-                        ucols)
-                    await cursor.execute(sql, vals + [corpus_id, name])
-            except Exception as ex:
-                logging.getLogger(__name__).error(
-                    'Failed to save registry values: {0}.'.format(list(zip(cols, vals))))
-                raise ex
+        cols = ['corpus_name', 'name', 'position'] + [POS_COLS_MAP[k]
+                                                      for k, v in values if k in POS_COLS_MAP]
+        vals = [corpus_id, name, position] + [v for k, v in values if k in POS_COLS_MAP]
+        try:
+            await cursor.execute('SELECT * FROM corpus_posattr WHERE corpus_name = %s AND name = %s', (corpus_id, name))
+            row = await cursor.fetchone()
+            if row is None:
+                sql = 'INSERT INTO corpus_posattr ({0}) VALUES ({1})'.format(
+                    ', '.join(cols), ', '.join(['%s'] * len(vals)))
+                await cursor.execute(sql, vals)
+            else:
+                ucols = ', '.join(f'{v} = %s' for v in cols)
+                sql = 'UPDATE corpus_posattr SET {0} WHERE corpus_name = %s AND name = %s'.format(
+                    ucols)
+                await cursor.execute(sql, vals + [corpus_id, name])
+        except Exception as ex:
+            logging.getLogger(__name__).error(
+                'Failed to save registry values: {0}.'.format(list(zip(cols, vals))))
+            raise ex
 
-    async def update_corpus_posattr_references(self, corpus_id, posattr_id, fromattr_id, mapto_id=None):
+    async def update_corpus_posattr_references(self, cursor: Cursor, corpus_id, posattr_id, fromattr_id, mapto_id):
         """
         both fromattr_id and mapto_id can be None
         """
-        async with self._db.cursor() as cursor:
-            await cursor.execute(
-                'UPDATE corpus_posattr SET fromattr = %s, mapto = %s '
-                'WHERE corpus_name = %s AND name = %s',
-                (fromattr_id, mapto_id, corpus_id, posattr_id))
+        await cursor.execute(
+            'UPDATE corpus_posattr SET fromattr = %s, mapto = %s '
+            'WHERE corpus_name = %s AND name = %s',
+            (fromattr_id, mapto_id, corpus_id, posattr_id))
 
     async def save_corpus_alignments(self, cursor: Cursor, corpus_id, aligned_ids):
         for aid in aligned_ids:
@@ -516,30 +512,29 @@ class WriteBackend(DatabaseWriteBackend[Cursor]):
                     'Failed to insert values {0}, {1}'.format(corpus_id, aid))
                 raise ex
 
-    async def save_corpus_structure(self, corpus_id, name, position: int, values):
+    async def save_corpus_structure(self, cursor: Cursor, corpus_id, name, position: int, values):
         base_cols = [STRUCT_COLS_MAP[k] for k, v in values if k in STRUCT_COLS_MAP]
         base_vals = [v for k, v in values if k in STRUCT_COLS_MAP]
 
-        async with self._db.cursor() as cursor:
-            await cursor.execute(
-                'SELECT position FROM corpus_structure '
-                'WHERE corpus_name = %s AND name = %s LIMIT 1', (corpus_id, name))
-            row = await cursor.fetchone()
-            if row:
-                if len(base_vals) > 0 or row['position'] != position:
-                    cols = ['position'] + base_cols
-                    vals = [position] + base_vals
-                    uexpr = ', '.join(f'{c} = %s' for c in cols)
-                    sql = 'UPDATE corpus_structure SET {0} WHERE corpus_name = %s AND name = %s'.format(
-                        uexpr)
-                    vals = vals + [corpus_id, name]
-                    await cursor.execute(sql, vals)
-            else:
-                cols = ['corpus_name', 'name', 'position'] + base_cols
-                vals = [corpus_id, name, position] + base_vals
-                sql = 'INSERT INTO corpus_structure ({0}) VALUES ({1})'.format(
-                    ', '.join(cols), ', '.join(['%s'] * len(vals)))
+        await cursor.execute(
+            'SELECT position FROM corpus_structure '
+            'WHERE corpus_name = %s AND name = %s LIMIT 1', (corpus_id, name))
+        row = await cursor.fetchone()
+        if row:
+            if len(base_vals) > 0 or row['position'] != position:
+                cols = ['position'] + base_cols
+                vals = [position] + base_vals
+                uexpr = ', '.join(f'{c} = %s' for c in cols)
+                sql = 'UPDATE corpus_structure SET {0} WHERE corpus_name = %s AND name = %s'.format(
+                    uexpr)
+                vals = vals + [corpus_id, name]
                 await cursor.execute(sql, vals)
+        else:
+            cols = ['corpus_name', 'name', 'position'] + base_cols
+            vals = [corpus_id, name, position] + base_vals
+            sql = 'INSERT INTO corpus_structure ({0}) VALUES ({1})'.format(
+                ', '.join(cols), ', '.join(['%s'] * len(vals)))
+            await cursor.execute(sql, vals)
 
     @staticmethod
     async def _structattr_exists(cursor: Cursor, corpus_id, struct_id, name):
@@ -550,35 +545,34 @@ class WriteBackend(DatabaseWriteBackend[Cursor]):
         row = await cursor.fetchone()
         return row['cnt'] == 1 if row else False
 
-    async def save_corpus_structattr(self, corpus_id, struct_id, name, position, values):
+    async def save_corpus_structattr(self, cursor: Cursor, corpus_id, struct_id, name, position, values):
         """
         """
-        async with self._db.cursor() as cursor:
-            if await self._structattr_exists(cursor, corpus_id, struct_id, name):
-                cols = [SATTR_COLS_MAP[k] for k, v in values if k in SATTR_COLS_MAP] + ['position']
-                if len(cols) > 0:
-                    vals = [v for k, v in values if k in SATTR_COLS_MAP] + \
-                        [position, corpus_id, struct_id, name]
-                    sql = (
-                        'UPDATE corpus_structattr '
-                        'SET {0} '
-                        'WHERE corpus_name = %s AND structure_name = %s AND name = %s').format(
-                            ', '.join('{0} = %s'.format(c) for c in cols))
-                else:
-                    sql = None
+        if await self._structattr_exists(cursor, corpus_id, struct_id, name):
+            cols = [SATTR_COLS_MAP[k] for k, v in values if k in SATTR_COLS_MAP] + ['position']
+            if len(cols) > 0:
+                vals = [v for k, v in values if k in SATTR_COLS_MAP] + \
+                    [position, corpus_id, struct_id, name]
+                sql = (
+                    'UPDATE corpus_structattr '
+                    'SET {0} '
+                    'WHERE corpus_name = %s AND structure_name = %s AND name = %s').format(
+                        ', '.join('{0} = %s'.format(c) for c in cols))
             else:
-                cols = ['corpus_name', 'structure_name', 'name'] + [SATTR_COLS_MAP[k]
-                                                                    for k, v in values if k in SATTR_COLS_MAP]
-                vals = [corpus_id, struct_id, name] + [v for k, v in values if k in SATTR_COLS_MAP]
-                sql = 'INSERT INTO corpus_structattr ({0}) VALUES ({1})'.format(
-                    ', '.join(cols), ', '.join(['%s'] * len(vals)))
-            try:
-                if sql is not None:
-                    await cursor.execute(sql, vals)
-            except Exception as ex:
-                logging.getLogger(__name__).error(
-                    'Failed to insert values {0}'.format(list(zip(cols, vals))))
-                raise ex
+                sql = None
+        else:
+            cols = ['corpus_name', 'structure_name', 'name'] + [SATTR_COLS_MAP[k]
+                                                                for k, v in values if k in SATTR_COLS_MAP]
+            vals = [corpus_id, struct_id, name] + [v for k, v in values if k in SATTR_COLS_MAP]
+            sql = 'INSERT INTO corpus_structattr ({0}) VALUES ({1})'.format(
+                ', '.join(cols), ', '.join(['%s'] * len(vals)))
+        try:
+            if sql is not None:
+                await cursor.execute(sql, vals)
+        except Exception as ex:
+            logging.getLogger(__name__).error(
+                'Failed to insert values {0}'.format(list(zip(cols, vals))))
+            raise ex
 
     async def save_subcorpattr(self, cursor: Cursor, corpus_id, struct_name, attr_name, idx):
         await cursor.execute(
