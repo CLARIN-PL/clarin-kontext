@@ -34,7 +34,7 @@ Import korpusów:
 `compilecorp /var/lib/manatee/registry/{nazwa_pliku_conf}`
 - zaimportować 
 `python3 lib/plugins/mysql_corparch/scripts/corpimport.py import /var/lib/manatee/registry/{nazwa_pliku_conf}`
-
+- nadać uprawnienia poprzez modyfikacje tabeli `kontext_user_access` poprzez phpMyAdmin na porcie 40001
 
 
 
